@@ -6,6 +6,7 @@
 # Then run python script
 #  
 # Usage:  sbatch subset_spear_ocean.sh YR1 YR2 mstart ens 
+# e.g.: sbatch subset_spear_ocean.sh 1998 2010 1 1
 set -u
 
 module load python/3.9 gcp

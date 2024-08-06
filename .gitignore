@@ -30,6 +30,7 @@ README.*
 *.log
 *.sql
 *.sqlite
+*slurm-*out
 
 # Modules and backups #
 #######################

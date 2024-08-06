@@ -8,7 +8,7 @@
 # Specify start/end years within the model run time period
 # for which the restart files need to be transferred to Gaea
 #
-# Usage: ./prepare_restart_fcst.sh YR1 [YR2 ]
+# Usage: ./restart_fcst2gaea.sh YR1 [YR2 ]
 # if YR2 is missing then YR2=YR1
 #  
 set -u
@@ -23,7 +23,7 @@ DTMP=$TMPDIR
 echo "DTMP: $DTMP"
 
 if [[ $# < 1 ]]; then
-  echo "usage: ./prepare_restart_fcst.sh YR1 [YR2 ]"
+  echo "usage: ./restart_fcst2gaea.sh YR1 [YR2 ]"
   echo " Start/end years are missing"
   exit 1
 fi
