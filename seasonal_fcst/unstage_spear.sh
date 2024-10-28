@@ -1,24 +1,19 @@
 #!/bin/bash -x
 #SBATCH --output=logs/%j.out
 #
-# Subset SPEAR ocean monthly fields for a specified domain
+# unstage SPEAR ocean monthly fields before running python script
 # First need to unstage the data 
 # Then run python script
-#   
-# Change SSH_MO=1 for using monthly SSH to 0 for skipping monthly ssh
-# SSH_DAY=1 for using daily SSH
-#
-# Usage:  sbatch subset_spear_ocean.sh YR1 YR2 mstart ens 
-# e.g.: sbatch subset_spear_ocean.sh 1998 2010 1 1
+#  
+# Usage:  sbatch unstage_spear_ocean.sh YR1 YR2 mstart ens 
+# e.g.: sbatch unstage_spear_ocean.sh 1998 2010 1 1
 set -u
 
-module load python/3.9 gcp
 
 export DTMP=$TMPDIR
 export WD=/work/Dmitry.Dukhovskoy/tmp/spear_subset/scripts
 export DPYTH=/home/Dmitry.Dukhovskoy/python/setup_seasonal_NEP
 export extrpy=extract_domain_spear.py
-export extrdaypy=extract_domain_spear_sshdaily.py
 
 /bin/mkdir -pv $WD
 
@@ -29,6 +24,7 @@ fi
 
 SSH_MO=0   # =1 : use monthly SSH
 SSH_DAY=1  # =1 : use daily SSH
+
 YR1=$1
 YR2=$2
 MS=$3
@@ -37,12 +33,6 @@ ens=$4
 echo "Extracting SPEAR monthly means for $YR1-$YR2 month_start=$MS ensemble=$ens"
 
 cd $WD
-
-if [[ $SSH_DAY -eq 1 ]]; then
-  f_ssh=True
-else
-  f_ssh=False
-fi
 
 for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
 
@@ -61,24 +51,25 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
   DICE=$RT/${subdir1}/pp_ens_${nens}/ice/ts/monthly/1yr
   DSSHDAY=$RT/${subdir1}/pp_ens_${nens}/ocean_daily/ts/daily/1yr
 
-  DTMPOUT=${DTMP}/${ystart}${mstart}/ens${nens}
-  echo "TMP dir = $DTMPOUT"
-  /bin/mkdir -pv $DTMPOUT
+#  DTMPOUT=${DTMP}/${ystart}${mstart}/ens${nens}
+#  echo "TMP dir = $DTMPOUT"
+#  /bin/mkdir -pv $DTMPOUT
   cd $DOCN
   for varnm in so thetao vo uo; do
     flnm=$( ls ocean_z.${ystart}${mstart}-??????.${varnm}.nc ) 
     echo "unstaging $flnm"
     dmget $flnm
     wait
-    /bin/cp $flnm $DTMPOUT/.
+#    /bin/cp $flnm $DTMPOUT/.
   done
 
+# Monthly mean SSH:
   if [[ $SSH_MO -eq 1 ]]; then
     cd $DICE
     flnm=$( ls ice.${ystart}${mstart}-??????.SSH.nc ) 
     echo "unstaging $flnm"
     dmget $flnm
-    /bin/cp $flnm $DTMPOUT/. 
+  #  /bin/cp $flnm $DTMPOUT/. 
     wait
   fi
 
@@ -88,51 +79,12 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
     flnm=$( ls ocean_daily.${ystart}${mstart}01-????????.ssh.nc )
     echo "unstaging $flnm"
     dmget $flnm
-    /bin/cp $flnm $DTMPOUT/. 
+  #  /bin/cp $flnm $DTMPOUT/. 
     wait
   fi
 
   echo "Staging finished"
-  ls -lh $DTMPOUT/*.nc
-    
-# ================
-#   Data subsetting 
-# ================
-  cd $WD
-  pwd
-  /bin/cp $DPYTH/*.py .
-  /bin/cp $DPYTH/config_nep.yaml .
-  fexe=run_extr_${ystart}${mstart}.py
-  /bin/rm -rf $fexe
-
-  sed -e "s|^pthtmp[ ]*=.*|pthtmp = '${DTMP}'|"\
-      -e "s|^tmpdir[ ]*=.*|tmpdir = '${DTMPOUT}'|"\
-      -e "s|^YR[ ]*=.*|YR = ${ystart}|"\
-      -e "s|^f_ssh[ ]*=.*|f_ssh = ${f_ssh}|"\
-      -e "s|^mstart[ ]*=.*|mstart = ${MS}|"\
-      -e "s|^ens[ ]*=.*|ens = ${ens}|" $extrpy > $fexe
-
-  chmod 750 $fexe
-  python $fexe
-  wait
-
-  if [[ $SSH_DAY -eq 1 ]]; then
-    cd $WD
-    pwd
-    fexeday=run_extrday_${ystart}${mstart}.py
-    /bin/rm -rf $fexeday
-     
-    sed -e "s|^pthtmp[ ]*=.*|pthtmp = '${DTMP}'|"\
-        -e "s|^tmpdir[ ]*=.*|tmpdir = '${DTMPOUT}'|"\
-        -e "s|^YR[ ]*=.*|YR = ${ystart}|"\
-        -e "s|^mstart[ ]*=.*|mstart = ${MS}|"\
-        -e "s|^ens[ ]*=.*|ens = ${ens}|" $extrdaypy > $fexeday
-
-    chmod 750 $fexeday
-    python $fexeday
-    wait
-
-  fi
+#  ls -lh $DTMPOUT/*.nc
 done 
 
 echo "All Done"
