@@ -6,13 +6,15 @@
 # Assumed file naming is YYYYMMDD.oceanm_YYYY_DDD.nc
 # File structure should follow a pattern 
 #
-# Usage:
+# Usage: postprcs_rename_restart.sh YR1 [YR2]
 set -u
 
 export REG=NEP
 export EXPT=seasonal_ensembles
 export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
-export PLTF="gfdl.ncrc5-intel22-repro"
+export dirsfx=NEPphys_frcst_climOB_  # X_X_X_  
+export PLTF=gfdl.ncrc5-intel22-repro
+export RSTDIR=0  # this dummy var is used for sed from postprcs_fcst_dailyOB.sh
 
 if [[ $# < 1 ]]; then
   echo "ERROR: specify year to start/end"
@@ -31,13 +33,18 @@ echo "Processing outputs for $YR1-$YR2"
 
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd $DARCH
-  for dens in $( ls -d *${yr}-??-e?? ); do
+  for dens in $( ls -d ${dirsfx}${yr}-??-e?? ); do
     fend=$( echo $dens | cut -d"_" -f4 )
     mstart=$( echo $fend | cut -d"-" -f2 )
     ens=$( echo $fend | cut -d"-" -f3 ) 
     date_start=${yr}${mstart}01
 #
-    cd $DARCH/$dens/$PLTF/restart
+    if [[ $RSTDIR == 0 ]]; then
+      rest_dir=$DARCH/$dens/$PLTF/restart
+    else
+      rest_dir=$RSTDIR
+    fi
+    cd $rest_dir
 # Restart date from tar name:
     date_restart=$( ls *.tar | cut -d"." -f1 )
 
