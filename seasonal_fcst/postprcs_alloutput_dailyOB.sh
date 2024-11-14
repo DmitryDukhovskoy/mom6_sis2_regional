@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 #
 # Postprocess all output after NEP f/casts:
 # untar and arrange archive files (both standard and N-daily output)
@@ -11,7 +11,7 @@
 # Assumed file naming is YYYYMMDD.oceanm_YYYY_DDD.nc
 # File structure should follow a pattern 
 #
-# Usage: 
+# Usage:  [sbatch] postprcs_fcst_dailyOB.sh YR1 [YR2]
 set -u
 
 export REG=NEP
@@ -20,9 +20,8 @@ export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
 export PLTF=gfdl.ncrc5-intel23-repro
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
-export expt_nmb=01        # forecast run experiment number or forecast group name 
-                       # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, etc.
-export expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
+#export expt_nmb=01        # forecast run experiment number or forecast group name 
+#                       # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, etc.
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
 export SRCD=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
 
@@ -57,6 +56,20 @@ echo "Processing outputs for $YR1-$YR2"
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd $DARCH
   for dens in $( ls -d *${yr}-??-e?? ); do
+# Assumed nameing NEPphys_frcst_dailyOBXX, XX - expt number
+# if not - then expt=01
+    bsname=$( echo $dens | cut -d"_" -f3 )
+    nchar=$( echo $bsname | wc -m )
+    cS=$(( nchar-3 ))
+    expt_nmb=${bsname:${cS}:2}
+   
+    if [[ $expt_nmb -gt 0 ]]; then 
+      echo "expt number = ${expt_nmb}"
+    else
+      expt_nmb=99
+      echo "expt number not defined, set it = ${expt_nmb}"
+    fi
+    expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
 #  for dens in $( ls -d *${yr}-04-e01 ); do
     fend=$( echo $dens | cut -d"_" -f4 )
     mstart=$( echo $fend | cut -d"-" -f2 )

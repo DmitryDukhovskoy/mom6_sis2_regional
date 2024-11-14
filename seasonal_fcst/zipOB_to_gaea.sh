@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #SBATCH --output=logs/zipOB%j.out
 # 
 # gzip and 
@@ -8,7 +8,9 @@
 # for specific month , ensembles specify optional YR2 MO and ENS
 #  YR2 may be skipped if YR2=Y1 and MO and ENS specified
 # meaning that files for YR1 MO and ENS will be zipped/sent to gaea
+#
 #  usage: [sbatch] zipOB_to_gaea.sh YR1 [[YR2]] [MO] [ENS] 
+#
 set -u
 
 export obc_dir=/work/Dmitry.Dukhovskoy/NEP_input/spear_obc_daily
@@ -25,6 +27,8 @@ if [[ $# -lt 1 ]]; then
   echo "usage: [sbatch] zipOB_to_gaea.sh YR1 [YR2] [MO] [ENS]"
   exit 1
 fi
+
+date
 
 YR1=$1
 YR2=$YR1
@@ -93,10 +97,12 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
     done
   fi
 # zip and send unzipped files
+  date
   for fl in $( ls $flnm*.nc ); do
     echo "zipping ${fl} "
     gzip ${fl}
     wait
+    date
 
     echo "sending ${fl}.gz to gaea: ${gaea_dir} ..."
 
@@ -106,6 +112,7 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
       echo "${fl}.gz sent to gaea "
       touch sent_OBCs/${fl}.gz-sent
     fi
+    date
   done
 
 

@@ -1,5 +1,11 @@
 #!/bin/bash -x
 #
+# To process all output fields at a time 
+# use  postprcs_alloutput_dailyOB.sh
+#
+# This script to process ocean/ sis output only 
+# for specific experiment
+#
 # Rename output files dumped from NEP MOM6-SIS2
 # from gaea to PPAN archive
 #
@@ -13,9 +19,10 @@
 set -u
 
 export REG=NEP
-export EXPT=seasonal_ensembles
+export EXPT=seasonal_daily
+export expt_nmb=03
 export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
-export PLTF="gfdl.ncrc5-intel22-repro"
+export PLTF="gfdl.ncrc5-intel23-repro"
 export oprfx=oceanm
 export iprfx=icem
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
@@ -48,14 +55,17 @@ echo "Processing outputs for $YR1-$YR2"
 
 /bin/cp $DAWK/dates.awk .
 
+expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  cd $DARCH
+  cd $DARCH/${expt_name}
+
   for dens in $( ls -d *${yr}-??-e?? ); do
     fend=$( echo $dens | cut -d"_" -f4 )
     mstart=$( echo $fend | cut -d"-" -f2 )
     ens=$( echo $fend | cut -d"-" -f3 ) 
 #
-    HSTDIR=$DARCH/$dens/$PLTF/history
+#    HSTDIR=$DARCH/$dens/$PLTF/history
+    HSTDIR=$DARCH/${expt_name}/${dens}/history
     cd $HSTDIR
 
     echo "Processing run $fend" 

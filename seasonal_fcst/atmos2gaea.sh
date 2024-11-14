@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 #
 # Prepare tar bundles in atmos_tar.sh
 # 

@@ -5,6 +5,8 @@
 # extracted for a specified domain
 # to create OBs files
 #   
+# usage: sbatch clean_spear_output.sh yr1 yr2 mstart ens1 [ens2]
+#
 set -u
 
 export DTMP=$TMPDIR

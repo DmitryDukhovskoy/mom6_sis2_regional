@@ -1,7 +1,7 @@
 #!/bin/bash 
 #
 # Remove directories with SPEAR ensemble atmospheric fields 
-# if the tar files have been icreated and sent to gaea
+# if the tar files have been created and sent to gaea
 #
 #
 set -u

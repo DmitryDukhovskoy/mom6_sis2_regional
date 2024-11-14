@@ -1,5 +1,6 @@
 #!/bin/bash -x
 #
+# If need to zip archive files for long storage and save space:
 # Run this script after running postprcs_arch.sh 
 # zip ice/ocean output history files grouped by months
 # No annual mean files here
