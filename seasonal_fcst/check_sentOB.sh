@@ -1,5 +1,8 @@
 #!/bin/bash
-#  
+#  !!! be careful when modifying this code !!!
+# is it called by several other scripts to check the status of OB files
+# e.g. create_dailyOB_MAIN.sh
+#
 # Check if OB file has been sent to gaea
 # check: status=$?
 # if status == 2 - file already sent

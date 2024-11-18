@@ -38,7 +38,7 @@ nens=$( echo $3 | awk '{printf("%02d",$1)}' )
 
 echo "zipping ocean ice outputs for $YR ensemble $nens"
 cd $DARCH
-for dens in $( ls -d *${YR}--e${nens} ); do
+for dens in $( ls -d *${YR}*e${nens} ); do
   fend=$( echo $dens | cut -d"_" -f4 )
 #  mstart=$( echo $fend | cut -d"-" -f2 )
 #  ens=$( echo $fend | cut -d"-" -f3 )

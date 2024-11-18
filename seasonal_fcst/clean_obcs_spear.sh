@@ -45,7 +45,7 @@ for flsent in $(  ls ${sfx}*.gz-sent ); do
   spear_dir=$DSUBSET/${yr}/ens${ens}
   echo "${yr} ens=${ens}"
   if [[ $yr -ge $YR1 ]] && [[ $yr -le $YR2 ]]; then
-    if [[ $ens_run -eq $ens ]] || [[ $ens_run -eq 0 ]]; then 
+    if [[ 10#$ens_run -eq 10#$ens ]] || [[ $ens_run -eq 0 ]]; then 
       echo "Deleting $DOBCS/$flgz"
       /bin/rm -f $DOBCS/$flgz
 
