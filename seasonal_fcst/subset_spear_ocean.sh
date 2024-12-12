@@ -131,8 +131,14 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
       fi
 
       DTMPOUT=${DTMP}/${ystart}${mstart}/ens${nens}
+      echo "SPEAR ocean dir=$DOCN"
+      echo "SPEAR ice dir=$DICE"
+      echo "SPEAR ssh dir=$DSSHDAY"
       echo "TMP dir = $DTMPOUT"
       /bin/mkdir -pv $DTMPOUT
+      chmod 750 $DTMPOUT
+      /bin/rm $DTMPOUT/*${ystart}${mstart}.*.nc
+
       cd $DOCN
       for varnm in so thetao vo uo; do
         flnm=$( ls ocean_z.${ystart}${mstart}-??????.${varnm}.nc ) 
@@ -203,7 +209,11 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
         chmod 750 $fexeday
     #    python $fexeday
         ipython $fexeday
-        wait
+        status=$?
+        if [[ $status -gt 0 ]]; then
+          echo "ERROR: failed $fexeday ..."
+          exit 5
+        fi
 
       fi
     done

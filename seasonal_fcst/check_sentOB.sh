@@ -4,6 +4,11 @@
 # e.g. create_dailyOB_MAIN.sh
 #
 # Check if OB file has been sent to gaea
+# Note that the actual OB file might have been deleted from the sent directory
+# if the file has been sent ! 
+# To check if the OB file exists and has/has not been sent yet:
+# ./check_createdOB_notsent.sh 2018 7 1
+#
 # check: status=$?
 # if status == 2 - file already sent
 #

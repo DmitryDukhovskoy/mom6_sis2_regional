@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 #SBATCH --output=logs/%j.out
 #
 # unstage SPEAR ocean monthly fields before running python script
@@ -18,8 +18,8 @@ export extrpy=extract_domain_spear.py
 
 /bin/mkdir -pv $WD
 
-if [[ $# < 2 ]]; then
-  echo "usage: sbatch subset_spear_ocean.sh YR1 [YR2] [mstart] ens"
+if [[ $# -lt 2 ]]; then
+  echo "usage: sbatch unstage_spear.sh YR1 [YR2] [mstart] ens"
   exit 1
 fi
 

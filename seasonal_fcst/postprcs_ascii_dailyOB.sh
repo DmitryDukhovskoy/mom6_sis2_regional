@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # Arrange ascii output files (log files, stat files) dumped from NEP MOM6-SIS2
 # from gaea to PPAN archive

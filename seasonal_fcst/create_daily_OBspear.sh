@@ -4,6 +4,10 @@
 # Script: Create daily OB from SPEAR output
 # running create_daily_from_monthly_spear.py 
 #
+#  !!!!!!!!!!!!!!!!!!!!!!!!
+# Careful when modifying the script - it is called from create_dailyOB_MAIN.sh
+#  !!!!!!!!!!!!!!!!!!!!!
+#
 # To run manually - edit python code and use python directly 
 #
 # !!!!!
@@ -11,6 +15,10 @@
 # python on compute nodes does not find python yaml etc modules
 # !!!!!!!
 # 
+# Here ens is SPEAR ensemble run, it is also the seasonal f/cast ens# unless 
+# fixed SPEAR ens run is used for all seasonal f/casts
+# then create 1 OB (e.g. ens=1) and use it as OB for all seasonal f/casts
+#
 # Usage:  create_daily_OBspear.sh YR1 [YR2] [MM] ens1 [ens2]
 # Examples:
 #   create_daily_OBspear.sh YR1 ens - generate OBs for init YR1 all months Jan, Apr, .., and ens run = ens
@@ -107,10 +115,21 @@ for (( yr_start=$YR1; yr_start<=$YR2; yr_start+=1 )); do
         echo "$yr_start $mm0 $ens0 already sent to gaea, skipping ..."
         continue
       fi
+# If not sent to gaea, check if *.nc or gzip exists
+      ${SRC}/check_createdOB_notsent.sh $yr_start $mm0 $ens0
+      status_gz=$?
+      if [[ $status_gz -eq 2 ]]; then
+        echo " OB file ${obc_file}  created NOT zipped  NOT sent yet, skipping OB creating step ..."
+        continue
+      fi
+      if [[ $status_gz -eq 3 ]]; then
+        echo " OB file ${obc_file}.gz  created AND zipped but NOT sent yet, skipping OB creating step ..."
+        continue
+      fi
 
 # Check if OBC files has been already created:
       if [[ $size_min -gt 0 ]]; then
-        /bin/ls -l $OBDIR/$obc_file
+        /bin/ls -l $OBDIR/$obc_file 2> /dev/null
         status=$?
         if [[ $status -eq 0 ]]; then
           dsz=$( ls -lh $OBDIR/$obc_file | cut -d" " -f5 )

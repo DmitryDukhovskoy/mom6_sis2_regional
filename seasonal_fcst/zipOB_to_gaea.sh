@@ -73,12 +73,14 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
 
 # send already zipped files that have not been sent yet
   nflz=$( ls -1 $flnm*nc.gz | wc -l )
+#  echo "nflz=$nflz"
   if [[ $nflz -gt 0 ]]; then
     for flz in $( ls $flnm*nc.gz ); do
       icc=0
       for dflzsent in $( ls sent_OBCs/*-sent ); do
         flzsent=$( echo $dflzsent | cut -d"/" -f2 )
         if [[ ${flz}-sent == ${flzsent} ]]; then
+           echo "${flz} already sent, no action ..."
            icc=$(( icc+1 ))
         fi
       done
@@ -98,7 +100,7 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
   fi
 # zip and send unzipped files
   date
-  for fl in $( ls $flnm*.nc ); do
+  for fl in $( ls $flnm*nc ); do
     echo "zipping ${fl} "
     gzip ${fl}
     wait

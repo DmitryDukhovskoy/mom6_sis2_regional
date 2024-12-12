@@ -20,10 +20,15 @@ export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
 export PLTF=gfdl.ncrc5-intel23-repro
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
-#export expt_nmb=01        # forecast run experiment number or forecast group name 
-#                       # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, etc.
+export expt_nmb=02     # forecast run experiment number or forecast group name 
+#                      # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, etc.
+                       # expt_nmb will be changed based on output fields names
+                       # it is needed only if output fields have laready been 
+                       # moved to post-processed directories to finish
+                       # post-processing if it has been interrupted
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
 export SRCD=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
+export expt_prfx=NEPphys_frcst_dailyOB
 
 if [[ $# -lt 1 ]]; then
   echo "ERROR: specify year to start/end"
@@ -49,15 +54,24 @@ else
   YR2=$2
 fi
 
+expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
 echo "Processing outputs for $YR1-$YR2"
 
 /bin/cp $DAWK/dates.awk .
 
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd $DARCH
-  for dens in $( ls -d *${yr}-??-e?? ); do
-# Assumed nameing NEPphys_frcst_dailyOBXX, XX - expt number
-# if not - then expt=01
+  # Uprocesses files are in NEPphys_frcst_dailyOBXX_YYYY-MM-eNN dir
+  # move output into dirs YYYY-MM-eNN 
+  ndirs_notpp=$( ls -d ${expt_prfx}*${yr}-??-e?? 2>/dev/null | wc -l )
+  echo "Found $ndirs_notpp not post-processed directories for ${yr}"
+  if [[ $ndirs_notpp -eq 0 ]]; then
+    echo " Output has already been moved to post-processed directories, skipping this step ... "
+    continue
+  fi
+  for dens in $( ls -d ${expt_prfx}*${yr}-??-e?? ); do
+# Assumed name NEPphys_frcst_dailyOBXX, XX - expt number
+# if XX=''  - then expt=01
     bsname=$( echo $dens | cut -d"_" -f3 )
     nchar=$( echo $bsname | wc -m )
     cS=$(( nchar-3 ))
@@ -66,12 +80,12 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
     if [[ $expt_nmb -gt 0 ]]; then 
       echo "expt number = ${expt_nmb}"
     else
-      expt_nmb=99
+      expt_nmb=''
       echo "expt number not defined, set it = ${expt_nmb}"
     fi
     expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
 #  for dens in $( ls -d *${yr}-04-e01 ); do
-    fend=$( echo $dens | cut -d"_" -f4 )
+    fend=$( echo $dens | cut -d"_" -f4 )   # 1999-04-e02
     mstart=$( echo $fend | cut -d"-" -f2 )
     ens=$( echo $fend | cut -d"-" -f3 ) 
 #
@@ -80,13 +94,16 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
     mkdir -pv $DNEW
     for dout in history restart ascii; do
       echo "Moving $DARCH/$dens/$PLTF/$dout ---> $DNEW/$dout"
-      /bin/mv $DARCH/$dens/$PLTF/$dout $DNEW/.
+      /bin/mv -f $DARCH/$dens/$PLTF/$dout $DNEW/.
     done
     cd $DARCH
     /bin/rmdir $DARCH/$dens/$PLTF
     /bin/rmdir $DARCH/$dens
   done
 done
+  
+ndirs_pp=$( ls -d ${yr}-??-e?? 2>/dev/null | wc -l )
+echo "Found $ndirs_pp post-processed directories for ${yr}"
 
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd $DARCH/$expt_name
@@ -103,6 +120,7 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
     ASCDIR=$DNEW/ascii
 
 # ASCII output files: log files, err files, stat files, remove all *logfile.*.out from PE
+  echo "Processing ascii output"
   ascii_sh=postprcs_ascii_dailyOB.sh
   sed -e "s|REG=.*|REG=${REG}|"\
       -e "s|EXPT=.*|EXPT=${EXPT}|"\
@@ -116,6 +134,8 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   ./pp_ascii_${fend}.sh 
 
 # Restart:
+# Restarts may not be needed, so can delete
+  echo "Processing restart files"
   rest_sh=postprcs_restart_dailyOB.sh
 #  /bin/cp $SRCD/$rest_sh .
   sed -e "s|REG=.*|REG=${REG}|"\
@@ -127,14 +147,16 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
       -e "s|fend=.*|fend=${fend}|" $SRCD/$rest_sh > pp_restart_${fend}.sh
 
   chmod 700 pp_restart_${fend}.sh
-  ./pp_restart_${fend}.sh
+#  ./pp_restart_${fend}.sh
+  sbatch pp_restart_${fend}.sh
 
 # Model output - history files
     cd $HSTDIR
     pwd
 
 # Check if tar file  exists:
-    ntar=$( ls -l ${yr}${mstart}??.nc.tar | wc -l )
+    echo "Processing daily and standard archive files"
+    ntar=$( ls -l ${yr}${mstart}??.nc.tar 2> /dev/null | wc -l )
 
 #    if ! [ -s $farch_tar ]; then
 #      nftar=0
@@ -142,7 +164,7 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
       echo "tar file does not exist, checking untarred filed ..."
 #      continue
 # check if daily files have been untarred:
-      nftar=$( ls ${yr}${mstart}??.{${oprfx},${iprfx}}_*.nc | wc -l )     
+      nftar=$( ls ${yr}${mstart}??.{${oprfx},${iprfx}}_*.nc 2> /dev/null | wc -l )     
       echo "Found $nftar untarred daily files"
 # check standard output files untarred:
       nftar_std=$( ls ${yr}${mstart}??.{ocean,ice}_*.nc | wc -l )
@@ -205,7 +227,7 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
 
 # If there are daily output files, group those otherwise skip:
     if [[ $nfls -eq 0 ]]; then
-      echo "No daily output files found, $nfls, skipping ${dens} ..."
+      echo "No daily output files found, $nfls, skipping ${fend} ..."
       pwd
       continue
     fi

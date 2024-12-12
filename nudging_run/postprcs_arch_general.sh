@@ -1,11 +1,6 @@
 #!/bin/bash 
 # 
-# Be careful when changing the script 
-# It is called from postprcs_alloutput_dailyOB.sh
-# It is safe to change directories like DARCH, or oprfx
-#
-# To process all output fields at a time 
-# use  postprcs_alloutput_dailyOB.sh
+# Code that can be modified for any output files
 #
 # This script to process ocean/ sis output only 
 # for specific experiment
@@ -23,10 +18,9 @@
 set -u
 
 export REG=NEP
-export EXPT=seasonal_daily
-export expt_nmb=03
-export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
-export PLTF="gfdl.ncrc5-intel23-repro"
+export EXPT=NEP_physics_202404_nudging-15d
+export PLTF="gfdl.ncrc5-intel22-repro"
+export DARCH=/archive/Dmitry.Dukhovskoy/fre/NEP/2024/${EXPT}/${PLTF}
 export oprfx=oceanm
 export iprfx=icem
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
@@ -59,29 +53,26 @@ echo "Processing outputs for $YR1-$YR2"
 
 /bin/cp $DAWK/dates.awk .
 
-expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
+#expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
+HSTDIR=$DARCH/history
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  cd $DARCH/${expt_name}
+  cd $DARCH/history
 
-  for dens in $( ls -d *${yr}-??-e?? ); do
-    fend=$( echo $dens | cut -d"_" -f4 )
-    mstart=$( echo $fend | cut -d"-" -f2 )
-    ens=$( echo $fend | cut -d"-" -f3 ) 
-#
+  for MM in 1 4 7 10; do
+    mstart=$(echo $MM | awk '{printf("%02d",$1)}')
 #    HSTDIR=$DARCH/$dens/$PLTF/history
-    HSTDIR=$DARCH/${expt_name}/${dens}/history
-    cd $HSTDIR
-
-    echo "Processing run $fend" 
+    cd $DARCH/history
+    echo "Processing run $yr/$mstart" 
     pwd
 
 # Check if tar file  exists:
     ntar=$( ls -l ${yr}${mstart}??.nc.tar | wc -l )
+    dir_targ=$DARCH/history/${yr}-${mstart}
 
 #    if ! [ -s $farch_tar ]; then
 #      nftar=0
     if [[ $ntar -eq 0 ]]; then
-      echo "tar file does not exist, check untarred filed ..."
+      echo "tar file does not exist, check untarred files ..."
 #      continue
 # check if files have been untarred:
       nftar=$( ls ${yr}${mstart}??.{${oprfx},${iprfx}}_*.nc | wc -l )     
@@ -106,59 +97,39 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
       date_start=$( ls ${yr}${mstart}??.nc.tar | cut -d"." -f1 )
       farch_tar=${date_start}.nc.tar
 
-# Check # of ocean, ice files in the tar: 
-      nftar=$( tar tvf $farch_tar | grep -E "${oprfx}|${iprfx}" | wc -l )
-      tar -xvf $farch_tar
+      /bin/mkdir -pv ${dir_targ}
+
+# Check # of files in the tar: 
+      nftar=$( tar tvf $farch_tar |  grep '\.nc' | wc -l )
+      tar -xvf $farch_tar -C ${dir_targ}
       wait
     fi
     
 # Get rid of the leading time stamp in the file names:
+    cd ${dir_targ}
     for FL in $( ls ${date_start}.*.nc ); do
       fldname=$( echo ${FL} | cut -d"." -f 2)
       echo "$FL ---> ${fldname}.nc"
       /bin/mv $FL ${fldname}.nc
     done
-    nfls=$( ls -l {${oprfx},${iprfx}}*.nc | wc -l )
 
-    if [[ $nfls -eq 0 ]]; then
-      echo "No output files found, $nfls, skipping ${dens} ..."
-      pwd
-      continue
-    fi
-
+    nfls=$( ls -l *.nc | wc -l )
+#    nfls=$( ls -l {${oprfx},${iprfx}}*.nc | wc -l )
+#
+#    if [[ $nfls -eq 0 ]]; then
+#      echo "No output files found, $nfls, skipping ${dens} ..."
+#      pwd
+#      continue
+#    fi
+#
     if [[ $nfls -ne $nftar ]]; then
       echo "Some files were not untarred, N untarred=${nfls}, N in the tar=${nftar} ?"
-#     exit 1
+##     exit 1
     else
       echo "Removing $farch_tar"
-      /bin/rm -f $farch_tar
+      /bin/rm -f $DARCH/history/$farch_tar
     fi
 
-# group ocean archive files by months for zipping
-    for FL in $( ls ${oprfx}_*.nc ); do
-      get_month_mday ${FL}
-
-      DOUT=oceanm_${YY}${MM}
-      if [ ! -d $DOUT ]; then
-        /bin/mkdir -pv ${HSTDIR}/${DOUT}
-      fi
-      echo "Moving $FL ---> ${DOUT}"
-      /bin/mv $FL $DOUT/.
-    done
-    
-# group ice archive files by months for zipping
-    for FL in $( ls ${iprfx}_*.nc ); do
-      get_month_mday ${FL}
-
-      DOUT=icem_${YY}${MM}
-      if [ ! -d $DOUT ]; then
-        /bin/mkdir -pv ${HSTDIR}/${DOUT}
-      fi
-      echo "Moving $FL ---> ${DOUT}"
-      /bin/mv $FL $DOUT/.
-    done
-
-#    exit 5
   done
 done
 

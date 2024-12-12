@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 #
 # Rename output files dumped from NEP MOM6-SIS2
 # from gaea to PPAN archive
