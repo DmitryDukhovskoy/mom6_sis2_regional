@@ -11,30 +11,24 @@
 # Assumed file naming is YYYYMMDD.oceanm_YYYY_DDD.nc
 # File structure should follow a pattern 
 #
-# Usage:  [sbatch] postprcs_fcst_dailyOB.sh YR1 [YR2]
+# Usage:  [sbatch] postprcs_alloutput_dailyOB.sh --enmb 3 --ys 1993 --ye 1993 --expt_grp NEPphys_frcst_dailyOB
 set -u
 
 export REG=NEP
 export EXPT=seasonal_daily
 export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}
 export PLTF=gfdl.ncrc5-intel23-repro
+export expt_grp=NEPphys_frcst_dailyOB    # experiment group name
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
-export expt_nmb=02     # forecast run experiment number or forecast group name 
-#                      # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, etc.
+export expt_nmb=03     # forecast run experiment number or forecast group name 
+#                      # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, 03 - with ice relaxation
                        # expt_nmb will be changed based on output fields names
                        # it is needed only if output fields have laready been 
                        # moved to post-processed directories to finish
                        # post-processing if it has been interrupted
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
 export SRCD=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
-export expt_prfx=NEPphys_frcst_dailyOB
-
-if [[ $# -lt 1 ]]; then
-  echo "ERROR: specify year to start/end"
-  echo "usage: [sbatch] postprcs_fcst_dailyOB.sh YR1 [YR2]"
-  exit 1
-fi
 
 function get_month_mday {
   local FL=$1
@@ -46,15 +40,63 @@ function get_month_mday {
   MM=`echo "YRDAY2MDAY" | awk -f ${DAWK}/dates.awk y01=$YY d01=$jday | awk '{printf("%02d",$2)}'`
   mday=`echo "YRDAY2MDAY" | awk -f ${DAWK}/dates.awk y01=$YY d01=$jday | awk '{printf("%02d",$3)}'`
 }
- 
-YR1=$1
-if [[ $# == 1 ]]; then
-  YR2=$YR1
-else
-  YR2=$2
+
+usage() {
+  echo "Usage: $0 1995 <-- specify only start year and use all defaults OR:"
+  echo "Usage: $0 --ys 1994 --ye 1994 --expt_nmb 3 --expt_grp NEPphys_frcst_dailyOB"
+  echo "  --ys          start with this init year to pprcs the f/cast <-- Required" 
+  echo "  --ye          end with this f/cast init year, default=same as ys"
+  echo "  --expt_nmb    experiment number within the experiment group, default=${expt_nmb}"
+  echo "  --expt_grp    experiment name, optional, default=${expt_grp}"
+  exit 1
+}
+
+if [[ $# -lt 1 ]]; then
+  echo "ERROR: specify year to start/end"
+  usage
 fi
 
-expt_name=NEPphys_frcst_dailyOB-expt${expt_nmb}
+
+YR2=0
+if [[ $# == 1 ]]; then
+  YR1=$1
+  YR2=$YR1
+else
+  # input with key arguments:
+  # Parse the command-line arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --ys)
+        YR1=$2
+        shift 2 # Move past the flag and its arg. to the next flag
+        ;;
+      --ye)
+        YR2=$2
+        shift 2
+        ;;
+      --expt_nmb)
+        expt_nmb=$2
+        shift 2
+        ;;
+      --expt_grp)
+        expt_grp=$2
+        shift 2
+        ;;
+      *)
+      echo "Error: Unrecognized option $1"
+      usage
+      ;;
+    esac
+  done
+fi
+
+if [[ $YR2 -eq 0 ]]; then
+  YR2=$YR1
+fi
+
+expt_nmb=$(echo $expt_nmb | awk '{printf("%02d", $1)}')
+
+expt_name=${expt_grp}-expt${expt_nmb}
 echo "Processing outputs for $YR1-$YR2"
 
 /bin/cp $DAWK/dates.awk .
@@ -63,13 +105,13 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd $DARCH
   # Uprocesses files are in NEPphys_frcst_dailyOBXX_YYYY-MM-eNN dir
   # move output into dirs YYYY-MM-eNN 
-  ndirs_notpp=$( ls -d ${expt_prfx}*${yr}-??-e?? 2>/dev/null | wc -l )
+  ndirs_notpp=$( ls -d ${expt_grp}*${yr}-??-e?? 2>/dev/null | wc -l )
   echo "Found $ndirs_notpp not post-processed directories for ${yr}"
   if [[ $ndirs_notpp -eq 0 ]]; then
     echo " Output has already been moved to post-processed directories, skipping this step ... "
     continue
   fi
-  for dens in $( ls -d ${expt_prfx}*${yr}-??-e?? ); do
+  for dens in $( ls -d ${expt_grp}*${yr}-??-e?? ); do
 # Assumed name NEPphys_frcst_dailyOBXX, XX - expt number
 # if XX=''  - then expt=01
     bsname=$( echo $dens | cut -d"_" -f3 )
