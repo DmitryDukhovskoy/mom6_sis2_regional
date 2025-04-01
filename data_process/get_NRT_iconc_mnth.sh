@@ -1,16 +1,14 @@
 #/bin/bash -x
 #
-# Copy daily sea ice conc data from Near-Real Time NOAA NSIDC 
+# Copy monthly sea ice conc data from Near-Real Time NOAA NSIDC 
 #
 export YRS=0
 export YRE=0
-export dlt_day=5   # skip N days
 
 usage() {
   echo "Usage: $0 --yrs 1994 --yre 1995 --dday 5"
   echo "  --yrs         year to start downloading data"
   echo "  --yre         year to end the download, default=1 year"
-  echo "  --dlt_day     number of days to skip for downloaded data, default=${dlt_day}"
   exit 1
 }
 
@@ -30,10 +28,6 @@ while [[ $# -gt 0 ]]; do
       YRE=$2
       shift 2
       ;; 
-    --dlt_day)
-      dlt_day=$2
-      shift 2
-      ;;
     *)
     echo "Error: Unrecognized option $1"
     usage
@@ -52,8 +46,8 @@ fi
 
 for (( YR=YRS; YR<=YRE; YR+=1 )); do
   echo "Delivering year $YR ..."
-  export DATADR=/work/Dmitry.Dukhovskoy/data/NRT_NOAA_NSIDC_seaconc/$YR
-  export url=https://noaadata.apps.nsidc.org/NOAA/G02202_V4/north/daily/${YR}
+  export DATADR=/work/Dmitry.Dukhovskoy/data/NRT_NOAA_NSIDC_seaconc/${YR}_mnth
+  export url=https://noaadata.apps.nsidc.org/NOAA/G02202_V4/north/monthly/
 
   mkdir -pv $DATADR
   cd $DATADR
@@ -61,28 +55,26 @@ for (( YR=YRS; YR<=YRE; YR+=1 )); do
   for (( mo=1; mo<=12; mo+=1 )); do
     mo0=$( echo $mo | awk '{printf("%02d", $1)}' )
 
-    for (( mday=1; mday<=31; mday+=dlt_day )); do
-      vrs=v04r00
-      if [[ $YR -lt 1995 ]]; then
-        fsfx='f11'
-      fi
-      if [[ $YR -eq 1995 ]] && [[ $mo -ge 10 ]]; then
-        fsfx='f13'
-      fi
-      if [[ $YR -ge 1996 ]]; then
-        fsfx='f13'
-      fi
-      if [[ $YR -ge 2008 ]]; then
-        fsfx='f17'
-      fi
+    vrs=v04r00
+    if [[ $YR -lt 1995 ]]; then
+      fsfx='f11'
+    fi
+    if [[ $YR -eq 1995 ]] && [[ $mo -ge 10 ]]; then
+      fsfx='f13'
+    fi
+    if [[ $YR -ge 1996 ]]; then
+      fsfx='f13'
+    fi
+    if [[ $YR -ge 2008 ]]; then
+      fsfx='f17'
+    fi
 
-      mday0=$( echo $mday | awk '{printf("%02d", $1)}' )
-      flnm=seaice_conc_daily_nh_${YR}${mo0}${mday0}_${fsfx}_${vrs}.nc
+    mday0=$( echo $mday | awk '{printf("%02d", $1)}' )
+    flnm=seaice_conc_monthly_nh_${YR}${mo0}_${fsfx}_${vrs}.nc
 
-      echo "Fetching $url/$flnm"
-      wget $url/$flnm
+    echo "Fetching $url/$flnm"
+    wget $url/$flnm
 
-    done
   done
 
   pwd
