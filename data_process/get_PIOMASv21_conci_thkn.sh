@@ -14,7 +14,7 @@ export YRS=0
 export YRE=0
 
 usage() {
-  echo "Usage: $0 --yrs 1994 --yre 1995 --dday 5"
+  echo "Usage: $0 --yrs 1994 --yre 1995"
   echo "  --yrs         year to start downloading data"
   echo "  --yre         year to end the download, default=1 year"
   exit 1
@@ -86,9 +86,9 @@ for (( YR=YRS; YR<=YRE; YR+=1 )); do
   cd $DATADR
 
   flthkn=heff.H${YR}.nc
-  flthkn_new=piomas20c_heff${YR}_v21.nc
+  flthkn_new=piomas_heff${YR}_v21.nc
   flconc=area.H${YR}.nc
-  flconc_new=piomas20c_area${YR}_v21.nc
+  flconc_new=piomas_area${YR}_v21.nc
 
   get_data $urlh $flthkn $flthkn_new
   get_data $urlc $flconc $flconc_new
