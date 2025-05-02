@@ -67,6 +67,7 @@ fi
 
 YR2=0
 ens1=0
+ens2=0
 MONTHS=(1 4 7 10)
 # input with key arguments:
 # Parse the command-line arguments
@@ -98,6 +99,11 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
+
+if [[ $ens1 -eq 0 ]]; then
+  echo "ens1 required, not provided, quitting ..."
+  usage
+fi
 
 if [[ $YR2 -eq 0 ]]; then
   YR2=$YR1
