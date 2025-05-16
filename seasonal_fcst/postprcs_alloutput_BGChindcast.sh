@@ -20,12 +20,6 @@ export expt_grp=NEPbgc_nudged_spinup    # experiment group name
 export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}/${expt_grp}
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
-export expt_nmb=0     # forecast run experiment number or forecast group name 
-#                      # 01 - with 1 SPEAR ens for OBCs, 02- multi SPEAR ens, 03 - with ice relaxation
-                       # expt_nmb will be changed based on output fields names
-                       # it is needed only if output fields have laready been 
-                       # moved to post-processed directories to finish
-                       # post-processing if it has been interrupted
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
 export SRCD=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
 
@@ -58,7 +52,7 @@ function untar_dir {
       for fl in ${date_file}.metadata.out/*; do
         mv "$fl" .
       done
-      /bin/rmdir -f "${date_file}.metadata.out"
+      /bin/rmdir "${date_file}.metadata.out"
     fi
 
     cd "$WDIR"
@@ -76,10 +70,9 @@ function untar_dir {
 }
 
 usage() {
-  echo "Usage: $0 --ys 1994 --ye 1994 --expt_nmb 3 --expt_grp NEPphys_frcst_dailyOB"
+  echo "Usage: $0 --ys 1994 --ye 1994"
   echo "  --ys          start with this init year to pprcs the f/cast <-- Required" 
   echo "  --ye          end with this f/cast init year, default=same as ys"
-  echo "  --expt_nmb    experiment number within the experiment group, default=${expt_nmb}"
   exit 1
 }
 
@@ -107,10 +100,6 @@ else
         YR2=$2
         shift 2
         ;;
-      --expt_nmb)
-        expt_nmb=$2
-        shift 2
-        ;;
       *)
       echo "Error: Unrecognized option $1"
       usage
@@ -129,10 +118,10 @@ echo "Processing outputs for $YR1-$YR2"
 
 /bin/cp $DAWK/dates.awk .
 
+# Change dir structure:
+DNEW=$DARCH
 if [[ -d "$DARCH/${PLTF}" ]]; then
   cd $DARCH/${PLTF}
-# Change dir structure:
-  DNEW=$DARCH
   mkdir -pv $DNEW
   for dout in history restart ascii; do
     echo "Moving $DARCH/${PLTF}/$dout ---> $DNEW/$dout"
@@ -150,12 +139,10 @@ ASCDIR=$DNEW/ascii
 
 # ASCII output files: log files, err files, stat files, remove all *logfile.*.out from PE
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  cd $DNEW
-  pwd
   echo "Processing ${yr}"
-
   echo "Processing ascii output"
   cd $ASCDIR
+  pwd
 
   # Should be 1 tar with date stamp = YYYYMMDD:
   # Check if tar file  exists:
@@ -182,12 +169,11 @@ done
 
 # Restart:
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  cd $DNEW
-  pwd
   echo "Processing restart files ${yr}"
   cd ${RSTDIR}
+  pwd
 
-  ntar=$( ls -l ${yr}????.tar | wc -l )
+  ntar=$( ls -l ${yr}????*tar | wc -l )
   if [[ $ntar -eq 0 ]]; then
     echo "tar restart file does not exist, skipping ..."
     continue
@@ -198,7 +184,7 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   echo "Processing restart: $date_rest" 
   pwd
 
-  frest_tar=${date_rest}.nc.tar
+  frest_tar=${date_rest}.tar
   untar_dir "$RSTDIR" "$frest_tar" "$date_rest" "$yr"
   untar_status=$?
 
@@ -211,12 +197,11 @@ done
 
 # History archives
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  cd $DNEW
-  pwd
   echo "Processing archive files ${yr}"
   cd ${HSTDIR}
+  pwd
 
-  ntar=$( ls -l ${yr}????.tar | wc -l )
+  ntar=$( ls -l ${yr}????.nc.tar | wc -l )
   if [[ $ntar -eq 0 ]]; then
     echo "tar restart file does not exist, skipping ..."
     continue
@@ -235,6 +220,16 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
     echo "WARNING: Failed to untar $fhist_tar in $HSTDIR"
     continue
   fi
+
+  # Rename archive files:
+  # Get rid of the leading time stamp in the file names:
+  cd $HSTDIR/$yr
+  for FL in $( ls ${date_hist}.*.nc ); do
+    fldname=$( echo ${FL} | cut -d"." -f 2)
+    echo "$FL ---> ${fldname}.nc"
+    /bin/mv $FL ${fldname}.nc
+  done
+ 
 done
 
 echo "All done"
