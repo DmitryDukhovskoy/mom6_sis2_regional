@@ -9,7 +9,8 @@
 set -u
 
 export date_start=19930401
-export DARCH=/work/Dmitry.Dukhovskoy/run_output/NEP_ISPONGE/1993/04
+#export DARCH=/work/Dmitry.Dukhovskoy/run_output/NEP_ISPONGE/1993/04
+export DARCH=/work/Dmitry.Dukhovskoy/tmp/test_irlx
 
 if [[ $# -eq 1 ]]; then
   if [[ $1 -gt 0 ]]; then
@@ -21,7 +22,7 @@ fi
 
 if [[ $# -eq 2 ]]; then
   date_start=$1
-  if [[ $# -eq 0 ]]; then
+  if [[ $2 -eq 0 ]]; then
     DARCH=$(pwd)
   fi
 fi

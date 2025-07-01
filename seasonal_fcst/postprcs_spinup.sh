@@ -1,8 +1,9 @@
 #!/bin/bash 
 #
-# Postprocess all output after NEP BGC nudged hindcasts:
+# Postprocess all output after NEP BGC spinup
 # untar and arrange archive files (both standard and N-daily output)
-# rename and zip restart files using restart date
+# rename and zip restart files
+# in restart files - add date stamp in the file name
 # 
 # 
 # Rename output files dumped from NEP MOM6-SIS2
@@ -15,9 +16,8 @@ set -u
 
 export REG=NEP
 export EXPT=hindcast_bgc
-export PLTF=gfdl.ncrc5-intel23-repro
-#export expt_grp=NEPbgc_nudged_spinup     # experiment group name
-export expt_grp=NEPbgc_nudged_hindcast02  # experiment group name
+export PLTF=gfdl.ncrc6-intel23-repro
+export expt_grp=NEPbgc_nudged_spinup     # experiment group name
 export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}/${expt_grp}
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
@@ -150,13 +150,13 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
 
   # Should be 1 tar with date stamp = YYYYMMDD:
   # Check if tar file  exists:
-  ntar=$( ls -l ${yr}????.*.tar | wc -l )
+  ntar=$( ls -l ${yr}????.*.tar 2>/dev/null | wc -l )
   if [[ $ntar -eq 0 ]]; then
     echo "tar file does not exist, skipping ..."
     continue
   fi
 
-  for fltar in $( ls *${yr}*.tar ); do
+  for fltar in $( ls ${yr}*.tar ); do
     date_ascii=$( echo $fltar | cut -d"." -f1 )
     echo "Processing ascii $date_ascii" 
     fascii_tar=${date_ascii}.ascii_out.tar
@@ -174,29 +174,55 @@ done
 # Note the date on restart tars are restart date not the
 # initialization date !!!
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
-  echo "Processing restart files ${yr}"
+  yr_restart=$(( yr + 1 ))
+  echo "Processing restart files from ${yr} run for restart year: ${yr_restart}"
   cd ${RSTDIR}
   pwd
 
-  ntar=$( ls -l ${yr}????*tar | wc -l )
+  ntar=$( ls -l ${yr_restart}????*tar 2>/dev/null | wc -l )
   if [[ $ntar -eq 0 ]]; then
     echo "tar restart file does not exist, skipping ..."
-    continue
+    
+  else
+    for fltar in $( ls ${yr_restart}*.tar ); do 
+      date_rest=$( echo $fltar | cut -d"." -f1 )
+      echo "Processing restart: $date_rest" 
+
+      frest_tar=${date_rest}.tar
+      untar_dir "$RSTDIR" "$frest_tar" "${date_rest}" "$yr" "restdate_${date_rest}"
+      untar_status=$?
+
+      if [[ $untar_status -ne 0 ]]; then
+        echo "WARNING: Failed to untar $frest_tar in $RSTDIR"
+        continue
+      fi
+    done    
   fi
- 
-  for fltar in $( ls *${yr}*.tar ); do 
-    date_rest=$( echo $fltar | cut -d"." -f1 )
-    echo "Processing restart: $date_rest" 
 
-    frest_tar=restdate_${date_rest}.tar
-    untar_dir "$RSTDIR" "$frest_tar" "$date_rest" "$yr" "$date_rest"
-    untar_status=$?
+  for fdir in $( ls -d restdate_${yr_restart}* ); do
+    # Rename restart files, add restart date:
+    cd ${RSTDIR}/$fdir
+    date_rest=$( echo $fdir | cut -d"_" -f2 )
+    for ftr in ice_cobalt MOM ice_model ocean_cobalt_airsea_flux; do
+      flin="${ftr}.res.nc"
+      flout="${ftr}_${date_rest}.res.nc"
+      if [ -f $flin ]; then
+        echo "Renaming ${flin} --> ${flout}"
+        /bin/mv $flin $flout
+      fi
+    done
+    [ -f coupler.res ] && /bin/mv coupler.res coupler_${date_rest}.res
 
-    if [[ $untar_status -ne 0 ]]; then
-      echo "WARNING: Failed to untar $frest_tar in $RSTDIR"
-      continue
-    fi
+    for i in {1..7}; do
+      flin="MOM.res_${i}.nc"
+      flout="MOM_${date_rest}.res_${i}.nc"
+      if [ -f "$flin" ]; then 
+        echo "Renaming $flin --> $flout"
+        mv "$flin" "$flout"
+      fi
+    done
   done
+
 done
 
 
@@ -206,36 +232,41 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   cd ${HSTDIR}
   pwd
 
-  ntar=$( ls -l ${yr}????.nc.tar | wc -l )
+  ntar=$( ls -l ${yr}????.nc.tar 2>/dev/null | wc -l )
   if [[ $ntar -eq 0 ]]; then
-    echo "tar restart file does not exist, skipping ..."
-    continue
+    echo "tar restart file does not exist ..."
+  else
+    for fltar in $( ls *${yr}*.tar ); do
+      date_hist=$( echo $fltar | cut -d"." -f1 )
+      echo "Processing history archives: $date_hist" 
+      pwd
+
+      fhist_tar=${date_hist}.nc.tar
+      untar_dir "$HSTDIR" "$fhist_tar" "$date_hist" "$yr" "$date_hist"
+      untar_status=$?
+
+      if [[ $untar_status -ne 0 ]]; then
+        echo "WARNING: Failed to untar $fhist_tar in $HSTDIR"
+        continue
+      fi
+    done
   fi
-
-  for fltar in $( ls *${yr}*.tar ); do
-    date_hist=$( echo $fltar | cut -d"." -f1 )
-    echo "Processing history archives: $date_hist" 
-    pwd
-
-    fhist_tar=${date_hist}.nc.tar
-    untar_dir "$HSTDIR" "$fhist_tar" "$date_hist" "$yr" "$date_hist"
-    untar_status=$?
-
-    if [[ $untar_status -ne 0 ]]; then
-      echo "WARNING: Failed to untar $fhist_tar in $HSTDIR"
-      continue
-    fi
 
   # Rename archive files:
   # Get rid of the leading time stamp in the file names:
   # WARNING: it may override files from different tar files
   #   e.g., 19931001.ice_month.nc  --->  ice_month.nc
-  #  cd $HSTDIR/$yr
-  #  for FL in $( ls ${date_hist}.*.nc ); do
-  #    fldname=$( echo ${FL} | cut -d"." -f 2)
-  #    echo "$FL ---> ${fldname}.nc"
-  #    /bin/mv $FL ${fldname}.nc
-  #  done
+  echo "Renaming archives if needed "
+  cd $HSTDIR
+  for YDR in $( ls -d ${yr}* ); do
+    cd "$YDR" || exit 1
+    pwd
+    for FL in ${yr}????.*.nc; do
+      [ -f "$FL" ] || continue  # Skip if no match
+      fldname=$(echo "$FL" | cut -d"." -f2)
+      echo "$FL ---> ${fldname}.nc"
+      /bin/mv "$FL" "${fldname}.nc"
+    done
   done
 done
 
