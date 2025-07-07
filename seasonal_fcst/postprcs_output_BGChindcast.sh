@@ -127,14 +127,20 @@ echo "Processing outputs for $YR1-$YR2"
 # Change dir structure:
 DNEW=$DARCH
 if [[ -d "$DARCH/${PLTF}" ]]; then
-  cd $DARCH/${PLTF}
-  mkdir -pv $DNEW
   for dout in history restart ascii; do
-    echo "Moving $DARCH/${PLTF}/$dout ---> $DNEW/$dout"
-    /bin/mv -f $DARCH/${PLTF}/$dout $DNEW/.
+    mkdir -pv $DNEW/$dout
+    cd $DARCH/${PLTF}/$dout
+    for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
+      for fltar in "${yr}"*.tar; do
+        [[ -e "$fltar" ]] || continue
+        echo "Moving $DARCH/${PLTF}/$dout/${fltar} ---> $DNEW/$dout/${fltar}"
+        /bin/mv -f ${fltar} "$DNEW/$dout/."
+      done
+    done
   done
   cd $DARCH
-  /bin/rmdir $DARCH/$PLTF
+  #/bin/rmdir $DARCH/$PLTF
+  /bin/rmdir -p "$DARCH/$PLTF" 2>/dev/null
 else
   echo " Output has already been moved to post-processed directories, skipping this step ... "
 fi

@@ -48,7 +48,7 @@ fi
 for (( YR=YRS; YR<=YRE; YR+=1 )); do
   echo "Delivering year $YR ..."
   export DATADR=/work/Dmitry.Dukhovskoy/data/SMOS_SMAP_thin_ice/${YR}
-  export url=https://data.seaice.uni-bremen.de/smos_smap/archive/netCDF/north/
+  export url=https://data.seaice.uni-bremen.de/smos_smap/archive/netCDF/north
 
   mkdir -pv $DATADR
   cd $DATADR
@@ -59,13 +59,17 @@ for (( YR=YRS; YR<=YRE; YR+=1 )); do
   fi
 
   for (( mo=1; mo<=12; mo+=1 )); do
+    # Frist record is 2015/03/31
+    if [[ YR -eq 2015 && mo -lt 4 ]]; then
+      continue
+    fi
     mo0=$( echo $mo | awk '{printf("%02d", $1)}' )
 
     for (( mday=1; mday<=31; mday+=dlt_day )); do
       if [[ $mo -eq 2 && $mday -gt 29 ]]; then
         continue
       elif [[ $mo -eq 4 || $mo -eq 6 || $mo -eq 9 || $mo -eq 11 ]]; then
-        if [[ $mday gt 30 ]]; then
+        if [[ $mday -gt 30 ]]; then
           continue
         fi
       fi
