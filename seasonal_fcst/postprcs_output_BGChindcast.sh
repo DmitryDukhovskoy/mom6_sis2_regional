@@ -7,12 +7,10 @@
 #
 # Assumed f/cast time period <= 1 year - when looking for restart dates
 # 
-# 
 # Rename output files dumped from NEP MOM6-SIS2
 # from gaea to PPAN archive
 #
 # Assumed file naming is YYYYMMDD.oceanm_YYYY_DDD.nc
-# File structure should follow a pattern 
 #
 set -u
 

@@ -1,0 +1,1 @@
+../seasonal_fcst/postprcs_output_BGChindcast.sh
