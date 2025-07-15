@@ -3,18 +3,9 @@
 # All steps included
 # Automatically checks completion of each step
 #
-# usage: create_dailyOB_MAIN.sh YR1 [YR2] [M1] ens1 [ens2]
 # Here ens is SPEAR ensemble run, it is also the seasonal f/cast ens# unless 
 # fixed SPEAR ens run is used for all seasonal f/casts
 # then create 1 OB (e.g. ens=1) and use it as OB for all seasonal f/casts
-#
-# Examples:
-#   create_dailyOB_MAIN.sh YR1 ens - generate OBs for init YR1 all months Jan, Apr, .., and ens run = ens
-#   create_dailyOB_MAIN.sh YR1 YR2 ens - generate OBs for init YR1-YR2, all months and ens run = ens
-#   create_dailyOB_MAIN.sh YR1 MM ens - generate OBs for init YR1 month=MM and ens run = ens (1 file)
-#   create_dailyOB_MAIN.sh YR1 YR2 MM ens - generate OBs for init YR1-YR2  month=MM and ensrun = ens
-#   create_dailyOB_MAIN.sh YR1 MM ens1 ens2 - generate OBs for init YR1  month=MM and ensruns = ens1:ens2
-#
 #
 set -u
 
@@ -24,51 +15,63 @@ export py_dir=/home/Dmitry.Dukhovskoy/python/setup_seasonal_NEP
 export WD=/work/Dmitry.Dukhovskoy/tmp/spear_subset/scripts
 export SRC=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
 
-
-if [[ $# < 2 ]]; then
-  echo "at least init year and ens should be specified"
-  echo "usage: create_dailyOB_MAIN.sh YR1 [YR2] [MM] ens1 [ens2]"
-  echo "e.g. create OBs for 1999/4 from 1-10 SPEAR ensembles: create_dailyOB_MAIN.sh 1999 4 1 10"
-  echo "e.g. create OBs for 1999/4 from ens=3 SPEAR ensembles: create_dailyOB_MAIN.sh 1999 4 3"
-  exit 1
-fi
-
-YR1=$1
-YR2=$YR1
+YR1=0
+YR2=0
 MONTHS=(1 4 7 10)
-#ens=$( echo $2 | awk '{printf("%02d",$1)}' )
-ens1=$2
+ENSMB=(1 2 3 4 5 6 7 8 9 10)
 
+usage() {
+  echo "Usage: $0 --ys 1994 [--ye 1995] [--mm 4] --ens 1,...,10 "
+  echo "  --ys     start with this year  <-- Required" 
+  echo "  --ye     end with this year, default=same as ys"
+  echo "  --mm     month to process, default (1,4,7,10)"
+  echo "  --ens    SPEAR ens. run to process, default (1,...,10)"
+  exit 1
+}
 
-if [[ $# -eq 3 ]]; then
-  if [[ $2 -gt 100 ]]; then
-    YR2=$2
-  else
-    MONTHS=($2)
-  fi
-  ens1=$3
+# Parse the command-line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --ys)
+      YR1=$2
+      shift 2 # Move past the flag and its arg. to the next flag
+      ;;
+    --ye)
+      YR2=$2
+      shift 2
+      ;;
+    --mm)
+      MONTHS=($2)
+      shift 2
+      ;;
+    --ens)
+      ENSMB=($2)
+      shift 2
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+    echo "Error: Unrecognized option $1"
+    usage
+    ;;
+  esac
+done
+
+if [[ $YR1 -eq 0 ]]; then
+  echo "ERR: YR1 was not specified $YR1"
+  usage
 fi
-ens2=$ens1
-
-if [[ $# -eq 4 ]]; then
-  if [[ $2 -gt 100 ]]; then
-    YR2=$2
-    MONTHS=($3)
-    ens1=$4
-    ens2=$ens1
-  else
-    MONTHS=($2)
-    ens1=$3
-    ens2=$4
-  fi
+if [[ $YR2 -eq 0 ]]; then
+  YR2=$YR1
 fi
 
 if [[ $YR1 -lt 1900 ]] || [[ $YR2 -lt 1900 ]]; then
   echo "ERROR: Check input years YR1=$YR1 YR2=$YR2 "
-  exit 1
+  usage
 fi
 
-echo "OBCs will be created for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ens1}-${ens2}" 
+echo "OBCs will be created for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ENSMB[@]}" 
 date
 
 # First check if gzip exists but has not been sent:
@@ -78,21 +81,22 @@ echo "Existing *.nc or gzipped will be checked first, not sent but created field
 echo "Subsetting SPEAR to NEP domain, calling subset_spear_ocean.sh"
 for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
   for MM in ${MONTHS[@]}; do
-    for (( ens_run=$ens1; ens_run<=$ens2; ens_run+=1 )); do
+    for ens_run in ${ENSMB[@]}; do
+      ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
 # Check if OB created:
-      ${SRC}/check_createdOB_notsent.sh $YR $MM ${ens_run}
+      ${SRC}/check_createdOB_notsent.sh --yr $YR --mm $MM --ens ${ens_run}
       status=$?
       if [[ $status -eq 2 ]]; then
-        echo " OB file *${YR}${MM}01_e${ens_run}.nc created not zipped/sent yet, skipping unstaging ..."
+        echo " OB file *${YR}${MM}01_e${ens0}.nc created not zipped/sent yet, skipping unstaging ..."
         continue
       fi
       if [[ $status -eq 3 ]]; then
-        echo " OB file *${YR}${MM}01_e${ens_run}.nc.gz created AND zipped but NOT sent yet, skipping unstaging ..."
+        echo " OB file *${YR}${MM}01_e${ens0}.nc.gz created AND zipped but NOT sent yet, skipping unstaging ..."
         continue
       fi
 
       echo "Calling ${SRC}/subset_spear_ocean.sh $YR ${MM} ${ens_run}"
-      ${SRC}/subset_spear_ocean.sh $YR ${MM} ${ens_run}
+      ${SRC}/subset_spear_ocean.sh --ys $YR --mm ${MM} --ens ${ens_run}
       status=$?
       if [[ $status -gt 0 ]]; then
         echo "ERROR flag, quitting ..."
@@ -106,16 +110,20 @@ done
 echo "Creating daily OB"
 for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
   for MM in ${MONTHS[@]}; do
-    for (( ens_run=$ens1; ens_run<=$ens2; ens_run+=1 )); do
-      ${SRC}/create_daily_OBspear.sh $YR ${MM} ${ens_run}
+    for ens_run in ${ENSMB[@]}; do
+      ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
+      ${SRC}/create_daily_OBspear.sh --ys $YR --mm ${MM} --ens ${ens_run}
       status=$?
     
       if [[ $status -eq 0 ]]; then 
 # ZIP and send to gaea:
-        echo "ZIP and send ---> gaea"
+# Do not zip, just send to gaea:
+#        echo "ZIP and send ---> gaea"
+        echo "send ---> gaea"
         cd ${SRC}
   #    ${SRC}/zipOB_to_gaea.sh $YR1 ${YR2inp} ${mo_start} ${ens_run}
-        sbatch -t 120 zipOB_to_gaea.sh $YR ${MM} ${ens_run}
+        #sbatch -t 120 zipOB_to_gaea.sh $YR ${MM} ${ens_run}
+        sbatch -t 120 sendOB_to_gaea.sh --ys $YR -mm ${MM} --ens ${ens_run}
       else
         echo "create_daily_OBspear failed, exit = $status, quitting ..."
         exit 1

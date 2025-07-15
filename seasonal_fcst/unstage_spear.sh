@@ -5,10 +5,7 @@
 # First need to unstage the data 
 # Then run python script
 #  
-# Usage:  [sbatch] unstage_spear_ocean.sh YR1 YR2 [mstart] ens 
-# e.g.: unstage_spear_ocean.sh 1998 2010 1 - will unstage all months 1,4,7,10 for yrs 1998-2010 ens=1
-#       unstage_spear_ocean.sh 1998 4 1  - will unstage 1998 month=4 ens=1
-#       unstage_spear_ocean.sh 1998 1    - will unstage 1998 all months (1,4,7,10) ens=1
+# Usage:  [sbatch] $0 --ys 1994 [--ye 1995] [--ms 4] [-ens 1,...,10]
 set -u
 
 export DTMP=$TMPDIR
@@ -27,7 +24,7 @@ SSH_DAY=1  # =0 : use monthly SSH
            # =2 : use daily SSH from ocean_daily - not avail for all years 
 
 usage() {
-  echo "Usage: $0 --ys 1994 [--ye 1995] [--ms 4] -ens 1,...,10 "
+  echo "Usage: $0 --ys 1994 [--ye 1995] [--mm 4] [--ens 1,...,10] "
   echo "  --ys     start with this year  <-- Required" 
   echo "  --ye     end with this year, default=same as ys"
   echo "  --mm     month to process, default (1,4,7,10)"
@@ -75,7 +72,7 @@ if [[ $YR2 -eq 0 ]]; then
 fi
 
 
-echo "Extracting SPEAR monthly means for $YR1-$YR2 MM=${MONTHS[@]} ensembles=${ENSMB[@]}"
+echo "Unstaging SPEAR monthly means for $YR1-$YR2 MM=${MONTHS[@]} ensembles=${ENSMB[@]}"
 
 cd $WD
 

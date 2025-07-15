@@ -8,14 +8,10 @@
 # Change SSH_MO=1 for using monthly SSH to 0 for skipping monthly ssh
 # SSH_DAY=1 for using daily SSH
 #
-# usage: sbatch subset_spear_ocean.sh YR1 [YR2] [MM] ens1 [ens2]
-#         subset_spear_ocean.sh YR1 ens - subset OBs for init YR1 all months Jan, Apr, .., and ens run = ens
-#         subset_spear_ocean.sh YR1 YR2 ens - subset OBs for init YR1-YR2 and ens run = ens
-#         subset_spear_ocean.sh YR1 MM ens - subset OBs for init YR1 month=MM and ens run = ens
-#         subset_spear_ocean.sh YR1 MM ens1  ens2 - subset OBs for init YR1  month=MM and ensruns = ens1:ens2
+# usage: sbatch subset_spear_ocean.sh --ys 1994 [--ye 1995] [--mm 4] --ens 1,...,10
 #
 # run ipython on login node
-# e.g.: subset_spear_ocean.sh 1998 7 1 10 --> OBs subset for init 1998/7 ens=1-10
+# e.g.: subset_spear_ocean.sh --ys 1998 --mm 7  --> OBs subset for init 1998/7 ens=1-10
 set -u
 
 if module list | grep "python"; then
@@ -38,52 +34,62 @@ export SRC=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
 
 /bin/mkdir -pv $WD
 
-if [[ $# -lt 2 ]]; then
-  echo "at least init year and ens should be specified"
-  echo "usage: sbatch subset_spear_ocean.sh YR1 [YR2] [MM] ens" 
-  exit 1
-fi
-
-if [[ $# -gt 5 ]]; then
-  echo "ERROR: max number of input fields = 4, input fields $#"
-  exit 1
-fi
-
 SSH_MO=0   # =1 : use monthly SSH
 SSH_DAY=1  # =1 : use daily SSH from ice_daily 
 #          # =2 : use daily SSH from ocean_daily - not avail for all years 
-YR1=$1
-YR2=$YR1
+YR1=0
+YR2=0
 MONTHS=(1 4 7 10)
-#ens=$( echo $2 | awk '{printf("%02d",$1)}' )
-ens1=$2
+ENSMB=(1 2 3 4 5 6 7 8 9 10)
 
-echo "Number of inputs $#"
+usage() {
+  echo "Usage: $0 --ys 1994 [--ye 1995] [--mm 4] --ens 1,...,10 "
+  echo "  --ys     start with this year  <-- Required" 
+  echo "  --ye     end with this year, default=same as ys"
+  echo "  --mm     month to process, default (1,4,7,10)"
+  echo "  --ens    SPEAR ens. run to process, default (1,...,10)"
+  exit 1
+}
 
-if [[ $# -eq 3 ]]; then
-  if [[ $2 -gt 100 ]]; then
-    YR2=$2
-  else
-    MONTHS=($2)
-  fi
-  ens1=$3
+# Parse the command-line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --ys)
+      YR1=$2
+      shift 2 # Move past the flag and its arg. to the next flag
+      ;;
+    --ye)
+      YR2=$2
+      shift 2
+      ;;
+    --mm)
+      MONTHS=($2)
+      shift 2
+      ;;
+    --ens)
+      ENSMB=($2)
+      shift 2
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+    echo "Error: Unrecognized option $1"
+    usage
+    ;;
+  esac
+done
+
+if [[ $YR1 -eq 0 ]]; then
+  echo "ERR: YR1 was not specified $YR1"
+  usage
 fi
-ens2=$ens1
-
-if [[ $# -eq 4 ]]; then
-  if [[ $2 -gt 100 ]]; then
-    YR2=$2
-    MONTHS=($3)
-    ens1=$4
-    ens2=$ens1
-  else
-    MONTHS=($2)
-    ens1=$3
-    ens2=$4
-  fi
+if [[ $YR2 -eq 0 ]]; then
+  YR2=$YR1
 fi
 
-echo "OBCs will be subset for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ens1}-${ens2}" 
+
+echo "OBCs will be subset for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ENSMB[@]}" 
 
 cd $WD
 
@@ -96,11 +102,12 @@ else
 fi
 
 for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
-  for (( ens_run=$ens1; ens_run<=$ens2; ens_run+=1 )); do
-    ens=$( echo $ens_run | awk '{printf("%d",$1)}' )
-    nens=$(echo ${ens_run} | awk '{printf("%02d",$1)}')
+  for ens in ${ENSMB[@]}; do
+    #ens=$( echo $ens_run | awk '{printf("%d",$1)}' )
+    nens=$(echo ${ens} | awk '{printf("%02d",$1)}')
     echo "Starting year=${ystart} for ens run${ens}"
     for MS in ${MONTHS[@]}; do
+      mstart=$(echo ${MS} | awk '{printf("%02d",$1)}')
       $SRC/check_sentOB.sh $ystart $MS $ens 
       status=$?
       if [[ $status -eq 2 ]]; then
@@ -108,9 +115,25 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
         continue
       fi
 
+      # Check if subset files have been already created:
+      DSUBSET=/work/Dmitry.Dukhovskoy/tmp/spear_subset/${ystart}/ens${nens}
+      icheck=0
+      for fldnm in so ssh_daily thetao uo vo; do
+        flnm_sub=NEP_spear_${ystart}${mstart}.${fldnm}.nc
+        if [ -s ${DSUBSET}/${flnm_sub} ]; then
+          echo "Found ${DSUBSET}/${flnm_sub} no subsetting required ..."
+        else
+          icheck=1
+        fi
+      done
+ 
+      if [[ $icheck -eq 0 ]]; then
+        echo "Skipping subsetting  for ${ystart}/${mstart} ...."
+        continue
+      fi
+
       # Find the directory to SPEAR post-processed forecast output on archive
       RT=/archive/l1j/spear_med/rf_hist/fcst/s_j11_OTA_IceAtmRes_L33
-      mstart=$(echo ${MS} | awk '{printf("%02d",$1)}')
       subdir1=i${ystart}${mstart}01_OTA_IceAtmRes_L33
       if (( $ystart == 2020 )); then
         subdir1=${subdir1}_rerun
@@ -220,7 +243,7 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
   done
 done 
 
-echo "All Done"
+echo "subset_spear_ocean.sh: All Done"
 exit 0
 
 

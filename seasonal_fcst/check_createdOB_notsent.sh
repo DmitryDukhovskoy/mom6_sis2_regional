@@ -23,15 +23,47 @@ export size_min=75  # >0 -check if OB *.nc file has been created to avoid recrea
 
 export size_gz=20  # GB*10 for gzipped files
 
-if [[ $# -lt 3 ]]; then
-  echo "MIssing YR MM ENSEMBLE"
-  echo "usage: check_sentOB.sh YR MM ens"
+usage() {
+  echo "Usage: $0 --ys 1994 --mm 4 --ens 1,...,10 "
+  echo "  --yr     start with this year  <-- Required" 
+  echo "  --mm     month to process, default (1,4,7,10)"
+  echo "  --ens    SPEAR ens. run to process, default (1,...,10)"
   exit 1
+}
+
+YR=0
+MM=0
+ens=0
+# Parse the command-line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --yr)
+      YR=$2
+      shift 2 # Move past the flag and its arg. to the next flag
+      ;;
+    --mm)
+      MM=$2
+      shift 2
+      ;;
+    --ens)
+      ens=$2
+      shift 2
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+    echo "Error: Unrecognized option $1"
+    usage
+    ;;
+  esac
+done
+
+if [[ $YR -eq 0 ]] || [[ $MM -eq 0 ]] || [[ $ens -eq 0 ]]; then
+  echo "ERR: YR was not specified $YR"
+  usage
 fi
 
-YR=$1
-MM=$2
-ens=$3
 MM0=$( echo $MM | awk '{printf("%02d", $1)}' )      
 ens0=$( echo $ens | awk '{printf("%02d",$1)}' )
 
