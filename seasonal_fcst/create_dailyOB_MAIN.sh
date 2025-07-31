@@ -19,13 +19,16 @@ YR1=0
 YR2=0
 MONTHS=(1 4 7 10)
 ENSMB=(1 2 3 4 5 6 7 8 9 10)
+ens1=0
+ens2=0
 
 usage() {
   echo "Usage: $0 --ys 1994 [--ye 1995] [--mm 4] --ens 1,...,10 "
   echo "  --ys     start with this year  <-- Required" 
   echo "  --ye     end with this year, default=same as ys"
   echo "  --mm     month to process, default (1,4,7,10)"
-  echo "  --ens    SPEAR ens. run to process, default (1,...,10)"
+  echo "  --ens    SPEAR ens. run to process, default all: (1,...,10)"
+  echo "  --ensE   set a range of ensembles: [ens, ..., ensE], ensE>=ens, optional"
   exit 1
 }
 
@@ -45,7 +48,11 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --ens)
-      ENSMB=($2)
+      ens1=$2
+      shift 2
+      ;;
+    --ensE)
+      ens2=$2
       shift 2
       ;;
     --help)
@@ -69,6 +76,18 @@ fi
 if [[ $YR1 -lt 1900 ]] || [[ $YR2 -lt 1900 ]]; then
   echo "ERROR: Check input years YR1=$YR1 YR2=$YR2 "
   usage
+fi
+
+# If ens. range is requested, redifine ENSMB array:
+if [[ $ens1 -gt 0 ]] && [[ $ens2 -eq 0 ]]; then
+  ens2=$ens1
+fi
+
+if [[ $ens1 -gt 0 ]]; then
+  ENSMB=()
+  for (( ii=ens1; ii<=ens2; ii++ )); do
+    ENSMB+=($ii)
+  done
 fi
 
 echo "OBCs will be created for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ENSMB[@]}" 
@@ -123,7 +142,7 @@ for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
         cd ${SRC}
   #    ${SRC}/zipOB_to_gaea.sh $YR1 ${YR2inp} ${mo_start} ${ens_run}
         #sbatch -t 120 zipOB_to_gaea.sh $YR ${MM} ${ens_run}
-        sbatch -t 120 sendOB_to_gaea.sh --ys $YR -mm ${MM} --ens ${ens_run}
+        sbatch -t 120 sendOB_to_gaea.sh --ys $YR --mm ${MM} --ens ${ens_run}
       else
         echo "create_daily_OBspear failed, exit = $status, quitting ..."
         exit 1

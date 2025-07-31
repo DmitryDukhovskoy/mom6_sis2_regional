@@ -5,6 +5,12 @@
 #
 set -u
 
+if module list | grep "gcp"; then
+  echo "gcp loaded"
+else
+  module load gcp/2.3
+fi
+
 export obc_dir=/work/Dmitry.Dukhovskoy/NEP_input/spear_obc_daily
 
 
@@ -66,9 +72,9 @@ if [[ $YR2 -eq 0 ]]; then
 fi
 
 #ens=$( echo $3 | awk '{printf("%02d",$1)}' )
-if [[ ${FS} --eq 5 ]]; then
+if [[ ${FS} -eq 5 ]]; then
   export gaea_dir=/gpfs/f5/cefi/scratch/Dmitry.Dukhovskoy/NEP_data/forecast_input_data/obcs_spear_daily
-elif [[ ${FS} --eq 6 ]]; then
+elif [[ ${FS} -eq 6 ]]; then
   export gaea_dir=/gpfs/f6/ira-cefi/scratch/Dmitry.Dukhovskoy/NEP_data/forecast_input_data/obcs_spear_daily
 else
   echo "Unrecognized file system ${FS}"
@@ -97,23 +103,24 @@ for (( ystart=$YR1; ystart<=$YR2; ystart+=1 )); do
       nfnc=$( ls -1 $flnm*nc 2>/dev/null | wc -l )
       if [[ $nfnc -gt 0 ]]; then
         for flnc in $( ls $flnm*nc ); do
-          for dflzsent in $( ls sent_OBCs/*${ystart}*-sent ); do
-            flzsent=$( echo $dflzsent | cut -d"/" -f2 )
-            icc = 0
-            if [[ ${flz}-sent == ${flzsent} ]]; then
-              echo "${flz} already sent, no action ..."
-              icc = $(( icc+=1 ))
+          icc=0
+          for dflncsent in $( ls sent_OBCs/*${ystart}*-sent ); do
+            flncsent=$( echo $dflncsent | cut -d"/" -f2 )
+            if [[ ${flnc}-sent == ${flncsent} ]]; then
+              echo "${flnc} already sent, no action ..."
+              icc=$(( icc+=1 ))
             fi
           done              
 
           if [[ $icc -eq 0 ]]; then
-            echo "sending ${flz} to gaea: ${gaea_dir} ..."
+            yrens=${ystart}_e${ens}
+            echo "sending ${flnc} to gaea: ${gaea_dir}/${yrens} ..."
 
-            gcp ${flz} gaea:${gaea_dir}/.
+            gcp -cd ${flnc} gaea:${gaea_dir}/${yrens}/
             status=$?
             if [[ $status == 0 ]]; then
-              echo "${flz} sent to gaea "
-              touch sent_OBCs/${flz}-sent
+              echo "${flnc} sent to gaea "
+              touch sent_OBCs/${flnc}-sent
             fi
               
           fi
