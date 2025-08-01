@@ -1,0 +1,298 @@
+#!/bin/bash 
+#
+# Postprocess all output after NEP BGC seasonal forecasts
+#
+# untar and arrange archive files (both standard and N-daily output)
+#
+# Rename output files dumped from NEP MOM6-SIS2
+# from gaea to PPAN archive
+#
+# Assumed file naming is YYYYMMDD.oceanm_YYYY_DDD.nc
+#
+set -u
+
+usage() {
+  echo "Usage: $0 --ys 1994 [--ye 1995] [--mm 4] --ens 1,...,10 "
+  echo "  --ys     start with this year" 
+  echo "  --ye     end with this year"
+  echo "  --mm     month to process, default (1,4,7,10)"
+  echo "  --ens    SPEAR ens. run to process, default all: (1,...,10)"
+  echo "  --ensE   set a range of ensembles: [ens, ..., ensE], ensE>=ens, optional"
+  exit 1
+}
+
+export EXPT=forecast_bgc
+export PLTF=gfdl.ncrc6-intel23-repro
+export EXPT_NAME=NEPbgc_fcst_dailyOB01
+export DDUMP=/archive/Dmitry.Dukhovskoy/fre/NEP/forecast_bgc
+export DARCH=/archive/Dmitry.Dukhovskoy/fre/NEP/forecast_bgc/${EXPT_NAME}
+export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
+export SRCD=/home/Dmitry.Dukhovskoy/scripts/seasonal_fcst
+
+YR1=0
+YR2=0
+MONTHS=(1 4 7 10)
+ENSMB=(1 2 3 4 5 6 7 8 9 10)
+ens1=0
+ens2=0
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --ys)
+      YR1=$2
+      shift 2 # Move past the flag and its arg. to the next flag
+      ;;
+    --ye)
+      YR2=$2
+      shift 2
+      ;;
+    --mm)
+      MONTHS=($2)
+      shift 2
+      ;;
+    --ens)
+      ens1=$2
+      shift 2
+      ;;
+    --ensE)
+      ens2=$2
+      shift 2
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+    echo "Error: Unrecognized option $1"
+    usage
+    ;;
+  esac
+done
+
+function get_month_mday {
+  local FL=$1
+  local bname=$( echo ${FL} | cut -d"." -f 1 )
+  local year=$( echo ${bname} | cut -d "_" -f 2 )
+  local jday=$( echo ${bname} | cut -d "_" -f 3 )
+# Assign values to global variables:
+  YY=$year
+  MM=$(echo "YRDAY2MDAY" | awk -f ${DAWK}/dates.awk y01=$YY d01=$jday | awk '{printf("%02d",$2)}')
+  mday=$(echo "YRDAY2MDAY" | awk -f ${DAWK}/dates.awk y01=$YY d01=$jday | awk '{printf("%02d",$3)}')
+}
+
+function untar_dir {
+  local WDIR=$1
+  local tar_file=$2
+  local date_file=$3
+  local yr=$4
+  local DIROUT=$5
+
+  cd "$WDIR" || { echo "Failed to cd into $WDIR"; return 1; }
+
+  if [[ -f "$tar_file" ]]; then
+    mkdir -p "${DIROUT}"
+    tar -xvf "$tar_file" -C "${DIROUT}"
+    status=$?
+
+    nfintar=$( tar tvf ${tar_file} | grep -v '^d' | wc -l ) # exclude dirs
+    cd "${DIROUT}" || return 1
+    if [[ -d "${date_file}.metadata.out" &&\
+          -n "$(ls -A "${date_file}.metadata.out")" ]]; then  
+      for fl in "${date_file}.metadata.out"/*; do
+        mv "$fl" .
+      done
+      /bin/rmdir "${date_file}.metadata.out"
+    fi
+
+    cd "$WDIR"
+    nfiles=$(find "${DIROUT}" -type f | wc -l) # N files untarred in output dir
+    
+    if [[ $status -eq 0 && $nfiles -eq $nfintar ]]; then
+      echo "Extraction successful. Removing ${tar_file}"
+      /bin/rm "${tar_file}"
+    else
+      echo "Warning: tar extraction may have failed or yielded no files."
+    fi
+  else
+    echo "Tar file $tar_file not found!"
+    return 1
+  fi
+}
+
+
+if [[ $YR1 -eq 0 ]]; then
+  usage
+fi
+
+if [[ $YR2 -eq 0 ]]; then
+  YR2=$YR1
+fi
+
+# If ens. range is requested, redifine ENSMB array:
+if [[ $ens1 -gt 0 ]] && [[ $ens2 -eq 0 ]]; then
+  ens2=$ens1
+fi
+
+if [[ $ens1 -gt 0 ]]; then
+  ENSMB=()
+  for (( ii=ens1; ii<=ens2; ii++ )); do
+    ENSMB+=($ii)
+  done
+fi
+
+echo "Processing output for ${YR1}-${YR2} MM=${MONTHS[@]} ens=${ENSMB[@]}" 
+
+
+/bin/cp $DAWK/dates.awk .
+
+# Change dir structure:
+for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
+  for MM in ${MONTHS[@]}; do
+    MM0=$(printf "%02d" "$MM")
+    for ens_run in ${ENSMB[@]}; do
+      ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
+      DNEW="$DARCH/${YR}-${MM0}-e${ens0}"
+      cd $DDUMP
+
+      diroutp="${EXPT_NAME}_${YR}-${MM0}-e${ens0}/gfdl.ncrc6-intel23-repro"
+      #echo "$DDUMP/$diroutp"
+      if [[ -d $DDUMP/$diroutp ]]; then
+        cd $DDUMP/$diroutp
+        icc=0
+        for dout in history ascii; do
+          cd "$DDUMP/$diroutp/$dout" || { echo "Not found: $DDUMP/$diroutp/$dout"; continue; }
+          mkdir -pv $DNEW/$dout
+          for fltar in "${YR}"*.tar; do
+            [[ -e "$fltar" ]] || continue
+            echo "Moving $DARCH/${PLTF}/$dout/${fltar} ---> $DNEW/$dout/${fltar}"
+            /bin/mv -f ${fltar} "$DNEW/$dout/."
+            status=$?
+            icc=$(( icc+status ))
+          done
+        done
+        # Do not need restarts:
+        echo "Removing restart files in $diroutp/restart"
+        /bin/rm -rf $DDUMP/$diroutp/restart/*
+
+        cd $DDUMP
+        if [[ $icc -eq 0 ]]; then
+          for dout in history ascii restart; do
+            echo "Removing $DDUMP/$diroutp/$dout"
+            /bin/rmdir -p "$DDUMP/$diroutp/$dout" 2>/dev/null
+          done
+        fi
+      else
+        echo " $diroutp  has already been moved to post-processed directories, skipping ... "
+        continue
+      fi
+    done
+  done
+done
+
+
+for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
+  for MM in ${MONTHS[@]}; do
+    MM0=$(printf "%02d" "$MM")
+    for ens_run in ${ENSMB[@]}; do
+      ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
+      DNEW="$DARCH/${YR}-${MM0}-e${ens0}"
+      HSTDIR=$DNEW/history
+      ASCDIR=$DNEW/ascii
+
+  # ASCII output files: log files, err files, stat files
+      echo "Processing ascii output  ${YR}"
+      cd ${ASCDIR} || { echo "Not found: $ASCDIR"; continue; }
+      pwd
+
+      # Should be 1 tar with date stamp = YYYYMMDD:
+      # Check if tar file  exists:
+      ntar=$( ls -l ${YR}????.*.tar 2>/dev/null | wc -l )
+      if [[ $ntar -eq 0 ]]; then
+        echo "tar file does not exist, skipping ..."
+        continue
+      fi
+
+      for fltar in $( ls ${YR}*.tar ); do
+        date_ascii=$( echo $fltar | cut -d"." -f1 )
+        echo "Processing ascii $date_ascii" 
+        fascii_tar=${date_ascii}.ascii_out.tar
+        untar_dir "$ASCDIR" "$fascii_tar" "$date_ascii" "$YR" "$date_ascii"
+        untar_status=$?
+
+        if [[ $untar_status -ne 0 ]]; then
+          echo "WARNING: Failed to untar $fascii_tar in $ASCDIR"
+          continue
+        fi
+      done
+
+      # Move ascii from a subdir:
+      sdir=${YR}${MM0}01
+      if [ -d $sdir ]; then
+        /bin/mv $sdir/* .
+        rmdir $sdir
+      fi
+
+    done
+  done
+done
+
+echo " -----------  "
+
+
+# History archives
+for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
+  for MM in ${MONTHS[@]}; do
+    MM0=$(printf "%02d" "$MM")
+    for ens_run in ${ENSMB[@]}; do
+      ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
+      DNEW="$DARCH/${YR}-${MM0}-e${ens0}"
+      HSTDIR=$DNEW/history
+
+      echo "Processing archive files ${YR}"
+      cd ${HSTDIR} || { echo "Not found: $HSTDIR"; continue; }
+      pwd
+
+      ntar=$( ls -l ${YR}????.nc.tar 2>/dev/null | wc -l )
+      if [[ $ntar -eq 0 ]]; then
+        echo "tar restart file does not exist ..."
+      else
+        for fltar in $( ls *${YR}*.tar ); do
+          date_hist=$( echo $fltar | cut -d"." -f1 )
+          echo "Processing history archives: $date_hist" 
+          pwd
+
+          fhist_tar=${date_hist}.nc.tar
+          untar_dir "$HSTDIR" "$fhist_tar" "$date_hist" "$YR" "$date_hist"
+          untar_status=$?
+
+          if [[ $untar_status -ne 0 ]]; then
+            echo "WARNING: Failed to untar $fhist_tar in $HSTDIR"
+            continue
+          fi
+        done
+      fi
+
+      # Move ascii from a subdir:
+      sdir=${YR}${MM0}01
+      if [ -d $sdir ]; then
+        /bin/mv $sdir/* .
+        rmdir $sdir
+      fi
+
+      # Rename archive files:
+      # Get rid of the leading time stamp in the file names:
+      # WARNING: it may override files from different tar files
+      #   e.g., 19931001.ice_month.nc  --->  ice_month.nc
+      echo "Renaming archives if needed "
+      cd $HSTDIR
+      for FL in ${YR}????.*.nc; do
+        [ -f "$FL" ] || continue  # Skip if no match
+        fldname=$(echo "$FL" | cut -d"." -f2)
+        echo "$FL ---> ${fldname}.nc"
+        /bin/mv "$FL" "${fldname}.nc"
+      done
+    done
+  done
+done
+echo "All done"
+
+exit 0
