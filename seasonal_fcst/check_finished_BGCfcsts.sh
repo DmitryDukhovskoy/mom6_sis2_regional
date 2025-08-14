@@ -12,7 +12,7 @@ usage() {
   echo "  --mm     month to process, default (1,4,7,10)"
   echo "  --ens    SPEAR ens. run to process, default all: (1,...,10)"
   echo "  --ensE   set a range of ensembles: [ens, ..., ensE], ensE>=ens, optional"
-  echo "  --short  >0: short summary, does not printout detailes, default = 0"
+  echo "  --short  >0: short summary, does not printout detailes, =0: full info,  default = 1"
   exit 1
 }
 
@@ -37,7 +37,7 @@ MONTHS=(1 4 7 10)
 ENSMB=(1 2 3 4 5 6 7 8 9 10)
 ens1=0
 ens2=0
-short=0
+short=1
 all=0
 
 # Parse the command-line arguments
@@ -124,6 +124,7 @@ if [ -d $DARCH ]; then
   for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
     for MM in ${MONTHS[@]}; do
       MM0=$(printf "%02d" "$MM")
+      iens=0
       for ens_run in ${ENSMB[@]}; do
         ens0=$( echo $ens_run | awk '{printf("%02d",$1)}' )
         DIROUTP="${YR}-${MM0}-e${ens0}"
@@ -162,10 +163,12 @@ if [ -d $DARCH ]; then
             report_result $YR $MM0 $ens0 "ICE" $nice $icesize
           fi
           report_result $YR $MM0 $ens0 "TOTAL" $nfiles $nsize
+          iens=$(( iens+1 ))
         else
           echo "    $YR $MM0 $ens0  ---- None ----"
         fi
       done
+      echo "Total: Completed ensembles  ${iens}"
       echo "==== "
     done
   done

@@ -96,7 +96,7 @@ if [[ $# == 1 ]] && [[ $1 =~ ^[0-9]+ ]]; then
 else
   # input with key arguments:
   # Parse the command-line arguments
-  while [[ $# -gt 0 ]]; do
+  while [ $# -gt 0 ]; do
     case $1 in
       --ys)
         YR1=$2
@@ -105,6 +105,9 @@ else
       --ye)
         YR2=$2
         shift 2
+        ;;
+      --help)
+        usage
         ;;
       *)
       echo "Error: Unrecognized option $1"

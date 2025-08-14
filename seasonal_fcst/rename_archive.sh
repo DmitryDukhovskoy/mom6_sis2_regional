@@ -4,37 +4,52 @@
 # File structure should follow a pattern 
 # rename YYYYMMDD.oceanm_YYYY_DDD.nc ---> oceanm_YYYY_DDD.nc
 #
-# Usage: rename_archive.sh -d <YYYYMMDD> -e <1,... expt nmb> [-c - use current dir]
-#  ./rename_archive.sh -c   will rename file in the current dir ignoring default expt_nmb
 #
 set -u
 
-export date_start=19930401
-export enmb=3          # experiment number 
-export YS=1993         # f/cast initialization year
-export MS=04           # f/cast initialization month
+usage() {
+  echo "Usage: $0 --dstr 19941201 --exptn 2 [--curdir 1] "
+  echo "  --dstr   date_start time string used in the MOM/SIS2 file names " 
+  echo "  --exptn  2 "
+  echo "  --curdir >0 - use current directory where arch files, =0 - use default dir "
+  exit 1
+}
+
+
+export date_start=20010101
+export enmb=2          # experiment number 
 export expt_name=test_ice_relax
 export DROOT=/archive/Dmitry.Dukhovskoy/fre/NEP/${expt_name}
 export use_cwd=0
 
-while getopts "d:e:c" opt; do
-  case $opt in
-    d)
-      date_start="$OPTARG"
+
+# Parse the command-line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dstr)
+      date_start=$2
+      shift 2 # Move past the flag and its arg. to the next flag
       ;;
-    e) 
-      enmb="$OPTARG"
+    --exptn)
+      enmb=$2
+      shift 2
       ;;
-    c)
-      use_cwd=1
+    --curdir)
+      use_cwd=$2
+      ;;
+    --help)
+      usage
       ;;
     *)
-      echo "unrecognized option / flag"
-      echo "Usage $0 -d <YYYYMMDD> -e<expt number> [-c flag to use current dir]"
-      exit 1
-      ;;
+    echo "Error: Unrecognized option $1"
+    usage
+    ;;
   esac
 done
+
+
+YS=${date_start:0:4}
+MS=${date_start:4:2}
 
 expt_nmb=$( echo ${enmb} | awk '{printf("%02d", $1)}')
 export SDIR=NEPphys_expt${expt_nmb}
@@ -46,10 +61,6 @@ fi
 
 
 echo "renaming files ${date_start}.*.nc from ${DARCH}"
-
-export oprfx=oceanm
-export iprfx=icem
-export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
 
 cd $DARCH
 
