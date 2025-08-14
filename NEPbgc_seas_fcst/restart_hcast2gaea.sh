@@ -35,7 +35,7 @@ M2=0
 dltM=3
 # input with key arguments:
 # Parse the command-line arguments
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   case $1 in
     --ys)
       YR1=$2
@@ -53,6 +53,9 @@ while [[ $# -gt 0 ]]; do
       M2=$2
       shift 2
       ;;
+    --help)
+      usage
+      ;;
     *)
     echo "Error: Unrecognized option $1"
     usage
@@ -67,12 +70,14 @@ fi
 if [[ $YR2 -eq 0 ]]; then
   YR2=$YR1
 fi
-if [[ $M1 -eq 0 ]]; then
-  MM1=1
+if [[ ${M1} -eq 0 ]]; then
+  M1=1
 fi
-if [[ $M2 -eq 0 ]]; then
-  MM2=10
+if [[ ${M2} -eq 0 ]]; then
+  M2=10
 fi
+
+#echo "M1=$M1 M2=$M2"
 
 mkdir -pv $DTMP
 cd $DTMP

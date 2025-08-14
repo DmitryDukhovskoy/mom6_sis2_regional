@@ -1,0 +1,1 @@
+../seasonal_fcst/check_finished_BGCfcsts.sh
