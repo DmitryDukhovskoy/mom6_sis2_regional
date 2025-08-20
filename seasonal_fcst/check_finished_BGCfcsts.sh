@@ -26,6 +26,23 @@ function report_result {
   echo "    ${yr}-${MM}-e${ens} ${fldnm} : N files = ${nfiles}  Size = ${size}"
 }
 
+in_array() {
+  # Input value to check - 1st
+  # 2nd - array
+  if [[ $# -lt 2 ]]; then
+    echo "Error: in_array requires at least 2 arguments" >&2
+    return 2
+  fi
+
+  local value=$1
+  shift
+  # Checking all array elements:
+  for item in "$@"; do
+    [[ "$item" == "$value" ]] && return 0
+  done
+  return 1
+}
+
 export EXPT=NEPbgc_fcst_dailyOB
 export expt_nmb=01
 export PLTF="gfdl.ncrc6-intel23-repro"
@@ -119,10 +136,16 @@ export DARCH=/archive/Dmitry.Dukhovskoy/fre/NEP/forecast_bgc/${EXPT_NAME}
 
 
 # Post-processed, rearranged output files:
+MISSED=()   # keep track of missing runs
 if [ -d $DARCH ]; then
   cd $DARCH
   for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
     for MM in ${MONTHS[@]}; do
+      # Skip 1993 01, no f/casts:
+      if [[ ${YR} -eq 1993 && ${MM} -eq 1 ]]; then
+        continue
+      fi
+
       MM0=$(printf "%02d" "$MM")
       iens=0
       for ens_run in ${ENSMB[@]}; do
@@ -166,6 +189,8 @@ if [ -d $DARCH ]; then
           iens=$(( iens+1 ))
         else
           echo "    $YR $MM0 $ens0  ---- None ----"
+          # Keep missing runs:
+          MISSED+=("${YR}-${MM0}-e${ens0}")
         fi
       done
       echo "Total: Completed ensembles  ${iens}"
@@ -179,8 +204,9 @@ fi
 # Not post-processed output:
 cd $DDUMP
 echo " "
-echo "Uprocessed tar files"
+echo "Checking unprocessed tar files:"
 ntar=0
+UNPRCS=()  # keep unporcessed runs
 for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
   for MM in ${MONTHS[@]}; do
     MM0=$(printf "%02d" "$MM")
@@ -202,11 +228,17 @@ for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
           if [[ $short -eq 0 ]]; then
             report_result $YR $MM0 $ens0 "TAR TOTAL" 1 $nsize
           fi
+
+          if [[ $bsize -gt 0 ]]; then
+            UNPRCS+=("${YR}-${MM0}-e${ens0}")
+          fi
         fi
       fi
 
     done
-    echo "    Unprocessed: $YR $MM0:    N ensembles = $nens"
+    if [[ $nens -gt 0 ]]; then
+      echo "    Unprocessed: $YR $MM0:    N ensembles = $nens"
+    fi
     if [[ $short -eq 0 ]]; then
       echo "  "
     fi
@@ -214,7 +246,24 @@ for (( YR=$YR1; YR<=$YR2; YR+=1 )); do
 done
 
 if [[ $ntar -eq 0 ]]; then
-  echo " NO Uprocessed tar files, size=$ntar"
+  echo "    NO unprocessed tar files, size=$ntar"
+fi
+
+# Report missing runs:
+if [[ ${#MISSED[@]} -gt 0 ]]; then
+  echo "====== "
+  echo " "
+  echo "Missing runs for ${YR1}-${YR2}:" 
+  for mrun in "${MISSED[@]}"; do
+    #echo "mrun = $mrun"
+    if [[ ${#UNPRCS[@]} -gt 0 ]]; then
+      if ! in_array "$mrun" "${UNPRCS[@]}"; then
+        echo "   xxx Missing run: ${mrun}"  
+      fi
+    else
+      echo "   xxx Missing run: ${mrun}" 
+    fi
+  done
 fi
 
 #echo "All Done"

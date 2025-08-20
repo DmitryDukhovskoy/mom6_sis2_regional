@@ -32,6 +32,10 @@ README.*
 *.sqlite
 *slurm-*out
 
+# Ignore specific directories
+**/restart
+**/rst_unprcs
+
 # Modules and backups #
 #######################
 **/__pycache__/*
