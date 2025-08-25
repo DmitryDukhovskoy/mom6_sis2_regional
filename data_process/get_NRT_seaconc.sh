@@ -34,6 +34,9 @@ while [[ $# -gt 0 ]]; do
       dlt_day=$2
       shift 2
       ;;
+    --help)
+      usage
+      ;;
     *)
     echo "Error: Unrecognized option $1"
     usage

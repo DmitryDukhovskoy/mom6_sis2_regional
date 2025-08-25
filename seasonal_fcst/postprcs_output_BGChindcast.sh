@@ -17,9 +17,6 @@ set -u
 export REG=NEP
 export EXPT=hindcast_bgc
 export PLTF=gfdl.ncrc6-intel23-repro
-#export expt_grp=NEPbgc_nudged_spinup     # experiment group name - same as in XML experiment name
-export expt_grp=NEPbgc_nudged_hindcast02    
-export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}/${expt_grp}
 export oprfx=oceanm    # ocean daily fields naming
 export iprfx=icem      # ice daily fields naming
 export DAWK=/home/Dmitry.Dukhovskoy/scripts/awk_utils
@@ -79,6 +76,8 @@ usage() {
   echo "Usage: $0 --ys 1994 --ye 1994"
   echo "  --ys          start with this init year to pprcs the f/cast <-- Required" 
   echo "  --ye          end with this f/cast init year, default=same as ys"
+  echo "  --run         hindcast or spinup: default hindcast"
+  echo "  --enmb        hindcast run number 1,2,3,..., default 2"
   exit 1
 }
 
@@ -88,7 +87,8 @@ if [[ $# -lt 1 ]]; then
   usage
 fi
 
-
+run=0  # run name: hindcast or spinup
+run_nmb=0  # hindcast only: 02 - main run, 03 - with corrected ERA5 forcing (flipped fields)
 YR2=0
 if [[ $# == 1 ]] && [[ $1 =~ ^[0-9]+ ]]; then
   YR1=$1
@@ -106,6 +106,10 @@ else
         YR2=$2
         shift 2
         ;;
+      --enmb)
+        run_nmb=$2
+        shift 2
+        ;;
       --help)
         usage
         ;;
@@ -121,7 +125,25 @@ if [[ $YR2 -eq 0 ]]; then
   YR2=$YR1
 fi
 
-echo "Processing outputs for $YR1-$YR2"
+if [[ $run -eq 0 ]]; then
+  run='hindcast'
+fi
+
+if [[ $run_nmb -eq 0 ]]; then
+  run_nmb=2
+fi
+
+run_nmb=$(printf "%02d" $run_nmb)
+
+if [ $run = 'spinup' ]; then
+  expt_grp=NEPbgc_nudged_spinup     # experiment group name - same as in XML experiment name
+else
+  expt_grp=NEPbgc_nudged_hindcast${run_nmb}
+fi
+export DARCH=/archive/Dmitry.Dukhovskoy/fre/${REG}/${EXPT}/${expt_grp}
+
+echo "Processing output for {expt_grp} for $YR1-$YR2"
+echo "Archive dir: $DARCH"
 
 /bin/cp $DAWK/dates.awk .
 
@@ -223,7 +245,7 @@ for (( yr=$YR1; yr<=$YR2+1; yr+=1 )); do
     for ftr in ice_cobalt MOM ice_model ocean_cobalt_airsea_flux; do
       flin="${ftr}.res.nc"
       flout="${ftr}_${date_rest}.res.nc"
-      if [ -f $flin ]; then
+      if [ -f "$flin" ]; then
         echo "Renaming ${flin} --> ${flout}"
         /bin/mv $flin $flout
       fi
