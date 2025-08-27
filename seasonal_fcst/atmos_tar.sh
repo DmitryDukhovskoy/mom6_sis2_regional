@@ -15,82 +15,129 @@
 # Usage: sbatch atmos_tar.sh  YR1 [YR2] 
 set -u
 
-if module list | grep "gcp"; then
-  echo "gcp loaded"
-else
-  module load gcp/2.3
-fi
 
 export DATM=/home/Dmitry.Dukhovskoy/work1/NEP_input/fcst_forcing/atmos
-export DGAEA=/gpfs/f5/cefi/scratch/Dmitry.Dukhovskoy/NEP_data/forecast_input_data/atmos
+MONTHS=(1 4 7 10) # initialization months
+ENSMB=(1 2 3 4 5 6 7 8 9 10)   # ens runs
+YR1=0
+YR2=0
+ensS=0
+ensE=0
 
-if [[ $# < 1 ]]; then
-  echo "usage: ./atmos2gaea.sh YR1 [YR2 ]"
-  echo " Start/end years are missing"
+usage() {
+  echo "Usage: $0 --ys 1994 --ye 1994"
+  echo "  --ys          start with this init year to pprcs the f/cast <-- Required" 
+  echo "  --ye          end with this f/cast init year, default=same as ys"
+  echo "  --datm        home directory where NEP atm forcing is, default=DATM"
+  echo "  --dgaea       atm. forc. dir on Gaea"
+  echo "  --ms      month to start the f/cast, default: 1,4,7,10" 
+  echo "  --ensS    1st ensemble # to run, default: all ensmbls: 1, ..., 10"
+  echo "  --ensE    last ensemble number to run, f/cast will be run for ensS,...,ensE, default=ensS"
   exit 1
+}
+
+# Pars flags for optional arguments:
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --ys)
+      YR1="$2"
+      shift 2
+      ;;
+    --ye)
+      YR2="$2"
+      shift 2
+      ;;
+    --ms)
+      MONTHS=("$2")
+      shift 2
+      ;;
+    --ensS)
+      ensS=$2
+      shift 2
+      ;;
+    --ensE)
+      ensE=$2
+      shift 2
+      ;;
+    --datm)
+      DATM="$2"
+      shift 2
+      ;;
+    --dgaea)
+      DGAEA="$2"
+      shift 2
+      ;;
+    --ensE)
+      ensE=$2
+      shift 2
+      ;;
+    --fs)
+      FS="$2"
+      shift 2
+      ;;
+    --help)
+      usage
+      ;;
+    *)
+      echo "Error: Unrecognized option $1"
+      usage
+      ;;
+  esac
+done
+
+if [[ ${YR1} -eq 0 ]]; then
+  echo "ERR: Start year was not specified"
+  usage
 fi
 
-MONTHS=(1 4 7 10)   # init months
-nensmb=10   # number of ensembles 
-YR1=$1
-if [[ $# == 1 ]]; then
-  YR2=$YR1
-else
-  YR2=$2
-fi 
+if [[ ${YR2} -eq 0 ]]; then
+  YR2="$YR1"
+fi
 
-cd $DATM
+if (( ensS > 0 && ensE == 0 )); then
+  ensE=$ensS
+fi
+
+if (( ensS > 0 )); then
+  ENSMB=()
+  for (( ens=$ensS; ens<=$ensE; ens++ )); do
+    ENSMB+=("$ens")
+  done
+fi
+
+nensmb=10
+
+echo "Tarring atm forcing files for $YR1 - $YR2 MM=${MONTHS[@]} ENS=${ENSMB[@]}"
+cd "$DATM" || { echo "Error: Cannot cd to $DATM"; exit 1; }
 pwd
 ls -l
 
-yr=$YR1
-#while [ $yr -le $YR2 ]; do
-#  for (( mo=1; mo<=12; mo+=3 )); do
 for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
   ndirs=$( ls -d ${yr}-??-e?? 2> /dev/null | wc -l )
   if [[ $ndirs -eq 0 ]]; then
     echo "No SPEAR fields for ${yr} found ..."
     continue
   fi
-#  for adirs in $( ls -d ${yr}-??-e?? ); do
-#    mo0=$( echo $adirs | cut -d"-" -f2 )
+
   for mo in ${MONTHS[@]}; do
     mo0=`echo ${mo} | awk '{printf("%02d", $1)}'`
-    flist=list_tar${yr}${mo0}.txt
-    ndir=`ls -1 | grep "${yr}-${mo0}-e" | wc -l`
-    if [[ $ndir -eq 0 ]]; then
-      echo "No $yr-$mo0 found in $DATM"
-      continue
-    fi
-#    if [[ $ndir -lt $nensmb ]]; then
-#      echo "only $ndir ens found for  $yr-$mo0 in $DATM, expected $NENS, skipping ..."
-#      continue
-#    fi
 
-    ls -1 | grep "${yr}-${mo0}-e" > $flist
-# Check if all ensembles have been created:
-#    cat $flist
-    ndirens=$( cat $flist | wc -l )
-    if [[ $ndirens -ne $nensmb ]]; then
-      echo "N of ensemble directories $ndirens, expected $nensmb"
-      echo "Need to run write_spear_atmos.py to finish atmos fields for $yr-$mo0"
-      echo "skipping ..."
-      continue
-    else
-      echo "${yr}-${mo0}  $ndirens atmos ensembles found:   ok"
-    fi
-
-    ftar=spear_atmos_${yr}${mo0}.tar.gz
-    if [ -s $ftar ]; then
-      echo "${ftar} exists, skipping"
-    else
-      echo "Tarring $flist --> ${ftar}"
-      /bin/tar -czvf ${ftar} -T ${flist}
-      wait
-    fi
+    for ens in ${ENSMB[@]}; do
+      ens0=$(printf "%02d" "$ens")
+      atm_dir="${yr}-${mo0}-e${ens0}"
+      ftar=spear_atmos_${yr}${mo0}e${ens0}.tar
+      if [ -d "$atm_dir" ]; then
+        echo "Creating tar ${ftar}"
+        /bin/tar -cvf ${ftar} ${atm_dir}
+        wait
+      else
+        echo "Missing ${atm_dir}"
+        echo "Need to run write_spear_atmos.py to finish atmos fields for $yr-$mo0"
+        echo "skipping ..."
+        continue
+      fi
+    done
   done
-#  yr=$((yr + 1))
-#  echo "yr=$yr"
 done
 
 echo "atmos_tar.sh: All done "
