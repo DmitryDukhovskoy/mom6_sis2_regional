@@ -32,7 +32,7 @@ ensS=0
 ensE=0
 
 usage() {
-  echo "Usage: $0 --ys 1994 --ye 1994"
+  echo "Usage: $0 --ys 1994 --ye 1994 --ms 1 --ensS 3 --ensE 9 --fs 6"
   echo "  --ys          start with this init year to pprcs the f/cast <-- Required" 
   echo "  --ye          end with this f/cast init year, default=same as ys"
   echo "  --ms      month to start the f/cast, default: 1,4,7,10" 
@@ -121,8 +121,17 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
     for ens in ${ENSMB[@]}; do
       ens0=$(printf "%02d" "$ens")
 
-      #ftar=spear_atmos_${yr}${mo0}.tar.gz
+      #ftar=spear_atmos_${yr}${mo0}.tar.gz   # 1 tar bundle zipped for all ensembles
       ftar=spear_atmos_${yr}${mo0}e${ens0}.tar
+
+      chck_file=spear_atmos_${yr}${mo0}_sent    # old naming for all ensembles combined in 1 tar
+      chck_new="spear_atmos_${yr}${mo0}e${ens0}_sent"
+      if [ -s $chck_file ] || [ -s $chck_new ]; then
+        echo "$ftar was already sent"
+        continue
+      fi
+
+
       if ! [ -s $ftar ]; then
         echo "${ftar} does not exist, checking if atmos fields exist for tarring"
         $SRC/atmos_tar.sh --ys "$yr" --ms "$mo" --ensS "$ens" --dgaea "$DGAEA"
@@ -140,18 +149,13 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
       fi
    
       echo "Sending $ftar to gaea:$DGAEA ..." 
-      chck_file=spear_atmos_${yr}${mo0}_sent
-      chck_new="spear_atmos_${yr}${mo0}e${ens0}_sent"
-      if [ -s $chck_file ] || [ -s $chck_new ]; then
-        echo "$ftar was already sent"
-        continue
-      fi
-
       /bin/rm -f $chck_new
       gcp $ftar gaea:$DGAEA/
       status=$?
       if [[ $status == 0 ]]; then
         echo $ftar > $chck_new
+        echo "removing $ftar"
+        rm $ftar
       fi
 
     done
