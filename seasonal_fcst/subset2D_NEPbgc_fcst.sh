@@ -1,6 +1,5 @@
 #!/bin/bash
 # SBATCH --output=logs/subset2D_%j.out
-#  sbatch does not work for untrusted output dir !
 set -u
 
 if module list | grep "python"; then
@@ -14,12 +13,12 @@ eval "$($PYPATH/bin/conda shell.bash hook)"
 conda activate anls
 
 usage() {
-  echo "Usage:  $0 --yrs 1993 [--yre 1999] [--mm 4] [--ens1 ...] [--ens2 ...] [...]"
+  echo "Usage:  [sbatch] $0 --yrs 1993 [--yre 1999] [--mm 4] [--ens1 ...] [--ens2 ...] [...]"
   echo "  --yrs     start year to subset output fields"
-  echo "  --yre     end year to subset SPEAR, default yre=yrs"
+  echo "  --yre     end year to subset forecast, default yre=yrs"
   echo "  --mm      init month to subset, default all 1,4,7,10"
-  echo "  --ens1    subset SPEAR ens. run ens1"
-  echo "  --ens2    subset SPEAR ens. runs ens1-ens2, deault ens2=ens1"
+  echo "  --ens1    subset seas forecast ens. run ens1"
+  echo "  --ens2    subset seas forecast ens. runs ens1-ens2, deault ens2=ens1"
   echo "  --ocnm    T/F - subset ocean_month.nc, default F"
   echo "  --icem    T/F - subset ice_month.nc, default F"
   echo "  --cobbtm  T/F - subset ocean_cobalt_btm, default F"
@@ -74,7 +73,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-
 if [[ $YR1 -eq 0 ]]; then
   echo "ERR: YR1 not specified"
   usage
@@ -91,6 +89,30 @@ if [[ $ens2 -eq 0 ]]; then
   ens2=10
 fi
 
+# Check if the subset has been finished or exists
+# Update start year if needed
+PTHCLB=/collab1/data_untrusted/Dmitry.Dukhovskoy/NEPbgc_fcst_dailyOB01/
+for (( YR=$YR1; YR<=$YR2; YR++ )); do
+  if [ -d "$PTHCLB/$YR" ]; then
+    # Just warn, may be updating existing year
+    echo "WARNING: $YR exists, keep extracting"
+  fi
+
+  if [ -f "$PTHCLB/${YR}_done" ]; then
+    echo "${YR} has been finished, updating start year"
+    YR1=$(( YR1+1 ))
+  else
+    # First unprocessed year found, stop scanning
+    break
+  fi
+done
+
+# If all years were processed
+if [ $YR1 -gt $YR2 ]; then
+  echo "All years from original YR1 to YR2 have been processed. Exiting."
+  exit 0
+fi
+
 DPYTH=/home/Dmitry.Dukhovskoy/python/anls_BGCseasonal
 pocn=subset_ocean2D.py
 pice=subset_ice_month.py
@@ -99,21 +121,25 @@ pcobtrc=subset_cobalt_tracers_int.py
 
 
 if [[ $ocnm == 'T' ]]; then
+  echo "Extracting ocean2D"
   HEXE=${DPYTH}/${pocn}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
 fi
 
 if [[ $icem == 'T' ]]; then
+  echo "Extracting ice 2D"
   HEXE=${DPYTH}/${pice}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
 fi
 
 if [[ $cobbtm == 'T' ]]; then
+  echo "Extracting COBALT btm"
   HEXE=${DPYTH}/${pcobbtm}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
 fi
 
 if [[ $cobtrc == 'T' ]]; then
+  echo "Extracting COBALT tracers int"
   HEXE=${DPYTH}/${pcobtrc}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
 fi
