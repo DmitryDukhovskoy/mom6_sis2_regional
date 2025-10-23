@@ -2,15 +2,23 @@
 #
 # Copy daily sea ice conc data from Near-Real Time NOAA NSIDC 
 #
+set -u
+
 export YRS=0
 export YRE=0
-export dlt_day=5   # skip N days
+export dlt_day=1   # skip N days
+moS=1
+moE=0
+regn=north
 
 usage() {
   echo "Usage: $0 --yrs 1994 --yre 1995 --dday 5"
   echo "  --yrs         year to start downloading data"
-  echo "  --yre         year to end the download, default=1 year"
+  echo "  --yre         year to end the download, default=yrs"
   echo "  --dlt_day     number of days to skip for downloaded data, default=${dlt_day}"
+  echo "  --ms          month to start download, default=1"
+  echo "  --me          month to end download, default=ms"
+  echo "  --regn        north or south, default=${regn}"
   exit 1
 }
 
@@ -19,6 +27,8 @@ if [[ $# -lt 1 ]]; then
   echo "ERROR: specify year to download"
   usage
 fi
+
+vers=6
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -32,6 +42,18 @@ while [[ $# -gt 0 ]]; do
       ;; 
     --dlt_day)
       dlt_day=$2
+      shift 2
+      ;;
+    --ms)
+      moS=$2
+      shift 2
+      ;;
+    --me)
+      moE=$2
+      shift 2
+      ;;
+    --regn)
+      regn=$2
       shift 2
       ;;
     --help)
@@ -53,19 +75,25 @@ if [[ $YRE -eq 0 ]]; then
   YRE=$YRS
 fi
 
+if [[ $moE -eq 0 ]]; then
+  moE=$moS
+fi
+      
+noaa_version=G02202_V${vers}  # Check what version to use on the website
+vrs=v0${vers}r00
+
 for (( YR=YRS; YR<=YRE; YR+=1 )); do
   echo "Delivering year $YR ..."
   export DATADR=/work/Dmitry.Dukhovskoy/data/NRT_NOAA_NSIDC_seaconc/$YR
-  export url=https://noaadata.apps.nsidc.org/NOAA/G02202_V4/north/daily/${YR}
+  export url=https://noaadata.apps.nsidc.org/NOAA/${noaa_version}/${regn}/daily/${YR}
 
   mkdir -pv $DATADR
   cd $DATADR
 
-  for (( mo=1; mo<=12; mo+=1 )); do
+  for (( mo=$moS; mo<=$moE; mo+=1 )); do
     mo0=$( echo $mo | awk '{printf("%02d", $1)}' )
 
     for (( mday=1; mday<=31; mday+=dlt_day )); do
-      vrs=v04r00
       if [[ $YR -lt 1995 ]]; then
         fsfx='f11'
       fi
@@ -80,7 +108,12 @@ for (( YR=YRS; YR<=YRE; YR+=1 )); do
       fi
 
       mday0=$( echo $mday | awk '{printf("%02d", $1)}' )
-      flnm=seaice_conc_daily_nh_${YR}${mo0}${mday0}_${fsfx}_${vrs}.nc
+     
+      if [[ $vers -lt 6 ]]; then
+        flnm=seaice_conc_daily_nh_${YR}${mo0}${mday0}_${fsfx}_${vrs}.nc
+      elif [[ $vers -eq 6 ]]; then
+        flnm=sic_pss25_${YR}${mo0}${mday0}_am2_${vrs}.nc
+      fi 
 
       echo "Fetching $url/$flnm"
       wget $url/$flnm
