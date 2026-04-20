@@ -1,5 +1,9 @@
 #!/bin/bash
-# SBATCH --output=logs/subset2D_%j.out
+#SBATCH --output=logs/subset2D_%j.out
+#
+# Submit job, example:
+# sbatch subset2D_NEPbgc_fcst.sh --yrs 1995 --yre 2024 --cobomip T
+#
 set -u
 
 if module list | grep "python"; then
@@ -23,6 +27,7 @@ usage() {
   echo "  --icem    T/F - subset ice_month.nc, default F"
   echo "  --cobbtm  T/F - subset ocean_cobalt_btm, default F"
   echo "  --cobtrc  T/F - subset ocean_cobalt_tracers_int, default F"
+  echo "  --cobomip  T/F - subset ocean_cobalt_omip_sfc, default F"
   exit 1
 }
 
@@ -50,6 +55,7 @@ ocnm=F
 icem=F
 cobbtm=F
 cobtrc=F
+cobomip=F
 YR1=0
 YR2=0
 MM=0
@@ -68,6 +74,7 @@ while [[ $# -gt 0 ]]; do
     --icem) icem=${2^^}; shift 2 ;;
     --cobbtm) cobbtm=${2^^}; shift 2 ;;
     --cobtrc) cobtrc=${2^^}; shift 2 ;;
+    --cobomip) cobomip=${2^^}; shift 2 ;;
     --help) usage; exit 0 ;;
     *) echo "Error: Unrecognized option $1"; usage; exit 1 ;;
   esac
@@ -118,30 +125,46 @@ pocn=subset_ocean2D.py
 pice=subset_ice_month.py
 pcobbtm=subset_cobalt_btm.py
 pcobtrc=subset_cobalt_tracers_int.py
-
+pcobomip=subset_cobalt_omip_sfc.py
 
 if [[ $ocnm == 'T' ]]; then
   echo "Extracting ocean2D"
   HEXE=${DPYTH}/${pocn}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
+else
+  echo "ocean2D: ${ocnm} "
 fi
 
 if [[ $icem == 'T' ]]; then
   echo "Extracting ice 2D"
   HEXE=${DPYTH}/${pice}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
+else
+  echo "ice2D: ${icem} "
 fi
 
 if [[ $cobbtm == 'T' ]]; then
   echo "Extracting COBALT btm"
   HEXE=${DPYTH}/${pcobbtm}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
+else
+  echo "COBALT btm: ${cobbtm}"
 fi
 
 if [[ $cobtrc == 'T' ]]; then
   echo "Extracting COBALT tracers int"
   HEXE=${DPYTH}/${pcobtrc}
   run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
+else
+  echo "COBALT tracers: $cobtrc"
+fi
+
+if [[ $cobomip == 'T' ]]; then
+  echo "Extracting COBALT omip sfc"
+  HEXE=${DPYTH}/${pcobomip}
+  run_py "$HEXE" "$MM" "$YR1" "$YR2" "$ens1" "$ens2" 
+else
+  echo "COBALT omip sfc: $cobomip"
 fi
 
 exit 0

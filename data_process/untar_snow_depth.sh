@@ -1,5 +1,7 @@
 #!/bin/bash -x
 #Untar snow depth NASA data
+# downloaded from
+# https://earth.gsfc.nasa.gov/cryo/data/antarctic-snow-depth-sea-ice
 #
 set -u
 

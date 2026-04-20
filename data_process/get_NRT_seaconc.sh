@@ -82,6 +82,25 @@ fi
 noaa_version=G02202_V${vers}  # Check what version to use on the website
 vrs=v0${vers}r00
 
+if [[ $regn == "south" ]]; then
+  if (( vers < 6 )); then
+    regn_sfx="sh"
+  elif (( vers == 6 )); then
+    regn_sfx="pss"
+  else
+    echo "Warning: Unsupported version '$vers' for region 'south'"
+  fi
+else
+  if (( vers < 6 )); then
+    regn_sfx="nh"
+  elif (( vers == 6 )); then
+    regn_sfx="psn"
+  else
+    echo "Warning: Unsupported version '$vers' for region 'north'"
+  fi
+fi
+
+
 for (( YR=YRS; YR<=YRE; YR+=1 )); do
   echo "Delivering year $YR ..."
   export DATADR=/work/Dmitry.Dukhovskoy/data/NRT_NOAA_NSIDC_seaconc/$YR
@@ -112,7 +131,7 @@ for (( YR=YRS; YR<=YRE; YR+=1 )); do
       if [[ $vers -lt 6 ]]; then
         flnm=seaice_conc_daily_nh_${YR}${mo0}${mday0}_${fsfx}_${vrs}.nc
       elif [[ $vers -eq 6 ]]; then
-        flnm=sic_pss25_${YR}${mo0}${mday0}_am2_${vrs}.nc
+        flnm=sic_${regn_sfx}25_${YR}${mo0}${mday0}_am2_${vrs}.nc
       fi 
 
       echo "Fetching $url/$flnm"

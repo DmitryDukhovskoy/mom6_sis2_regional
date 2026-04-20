@@ -9,7 +9,7 @@ set -u
 
 usage() {
   echo "Usage: $0 --dstr 19941201 --exptn 2 [--curdir 1] "
-  echo "  --dstr   date_start time string used in the MOM/SIS2 file names " 
+  echo "  --dstr   date_start time string used in the MOM/SIS2 file names to be removed" 
   echo "  --exptn  irlx test expriment number: 1,...,5"
   echo "  --curdir >0 - use current directory where arch files, =0 - use default dir "
   echo "  --regn   region name: NEP or ARC, default NEP"
