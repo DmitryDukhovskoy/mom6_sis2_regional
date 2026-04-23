@@ -10,8 +10,6 @@
 # Atmos subsets prepared in python:
 # /home/Dmitry.Dukhovskoy/python/setup_seasonal_NEP/write_spear_atmos.py
 # 
-# Usage: atmos2gaea.sh YR1 [YR2] 
-# or sbatch atmos2gaea.sh YR1 [YR2]
 set -u
 
 if module list | grep "gcp"; then
@@ -142,7 +140,7 @@ for (( yr=$YR1; yr<=$YR2; yr+=1 )); do
         fi
       fi
   
-# Tar may still not exist, if not all ensembles were create, for instance:
+      # Tar may still not exist, if not all ensembles were created
       if ! [ -s $ftar ]; then
         echo "$ftar still not found, check tar/gzip step, not all ensembles ?? Skipping ..."
         continue

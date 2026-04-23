@@ -10,7 +10,6 @@
 set -u
 
 export DATM=/home/Dmitry.Dukhovskoy/work1/NEP_input/fcst_forcing/atmos
-export DGAEA=/gpfs/f5/cefi/scratch/Dmitry.Dukhovskoy/NEP_data/forecast_input_data/atmos
 
 if [[ $# -lt 1 ]] || [[ $# -gt 2 ]]; then
   echo "usage: clean_atmos.sh YR1 [YR2] "
