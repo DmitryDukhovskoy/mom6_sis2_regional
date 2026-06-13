@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 # 
 # Prepare datm fields 
 # After copying atm. data from HPSS
@@ -91,6 +91,7 @@ HEXE=conv_gfs2datm.x  # executable compiled for this machine, see comp_fort.sh
 mkdir -pv $WDIR
 mkdir -pv $TDIR
 
+cp $HEXE $WDIR/.
 cd $WDIR
 pwd
 
@@ -123,7 +124,9 @@ while [[ "$ymd" -le "$edate" ]]; do
       exit 1
     fi
 
-
+# Note the following command assumes that time is at line #5, which is not robust
+# A more robust way would be to use ncks --mk_rec_dmn time to make time a record (unlimited) dimension:
+# ncks --mk_rec_dmn time gfs_output.nc gfs_output2.nc
     ncdump gfs_output.nc | sed -e "5s#^.time = 1 ;#time = UNLIMITED ; // (1 currently)#" | ncgen -o gfs_output2.nc
 #    mv -f gfs_output2.nc gfs_output.nc
     /bin/mv gfs_output2.nc ${TDIR}/gfs.${ymdh}.nc

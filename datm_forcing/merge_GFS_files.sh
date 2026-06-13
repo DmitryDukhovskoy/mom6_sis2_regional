@@ -15,7 +15,7 @@ usage() {
   echo "Usage: $0 [--ys YYYY] [--ye YYYY] ..."
   echo "  --ys    start year, default - all years in DATM dir"
   echo "  --ye    end year, ignore if ys is not specified, default = ys"
-  echo "  --fixpr =1: fix negative precipitation, =0 - not, default ${fix_precip}"
+  echo "  --fixpr =1: fix negative precipitation, =0 - not, default ${fixpr}"
   exit 1
 }
 
@@ -109,7 +109,7 @@ if [[ $fixpr -eq 0 ]]; then
   mv ${flmrg} ${flout}
   touch merged_precip_notcrcted
 else
-  echo "Correcting negative precipitation  ---> ${flmrg}"
+  echo "Correcting negative precipitation  ---> ${flout}"
   cd $DATM
 
   ncap2 -s 'where(fprecp<0.) fprecp=0.;' ${flmrg} -O ${flout}
